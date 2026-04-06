@@ -1,10 +1,20 @@
+import time
+
 import httpx
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Frame, SyncGroup, SyncFrame
 
+
+DISPATCH_STATUS_PENDING = "pending"
+DISPATCH_STATUS_SUCCESS = "success"
+DISPATCH_STATUS_FAILED = "failed"
+
 def create_sync_group(db: Session, group_timestamp: int, frame_ids: list[int]) -> SyncGroup:
-    group = SyncGroup(group_timestamp=group_timestamp)
+    group = SyncGroup(
+        group_timestamp=group_timestamp,
+        dispatch_status=DISPATCH_STATUS_PENDING,
+    )
     db.add(group)
     db.flush()
 
@@ -17,6 +27,27 @@ def create_sync_group(db: Session, group_timestamp: int, frame_ids: list[int]) -
     return group
 
 
+def serialize_sync_group(group: SyncGroup):
+    return {
+        "id": group.id,
+        "group_timestamp": group.group_timestamp,
+        "dispatch_status": group.dispatch_status,
+        "last_dispatch_at": group.last_dispatch_at,
+        "last_dispatch_status_code": group.last_dispatch_status_code,
+        "last_dispatch_error": group.last_dispatch_error,
+        "dispatched_at": group.dispatched_at,
+        "frames": [
+            {
+                "id": item.frame.id,
+                "device_id": item.frame.device_id,
+                "timestamp": item.frame.timestamp,
+                "file_path": item.frame.file_path,
+            }
+            for item in group.frames
+        ],
+    }
+
+
 def get_sync_groups(db: Session, limit: int = 20):
     groups = (
         db.query(SyncGroup)
@@ -26,23 +57,7 @@ def get_sync_groups(db: Session, limit: int = 20):
         .all()
     )
 
-    result = []
-    for group in groups:
-        result.append({
-            "id": group.id,
-            "group_timestamp": group.group_timestamp,
-            "frames": [
-                {
-                    "id": item.frame.id,
-                    "device_id": item.frame.device_id,
-                    "timestamp": item.frame.timestamp,
-                    "file_path": item.frame.file_path,
-                }
-                for item in group.frames
-            ]
-        })
-
-    return result
+    return [serialize_sync_group(group) for group in groups]
 
 def get_sync_group_by_id(db: Session, group_id: int):
     group = (
@@ -55,19 +70,7 @@ def get_sync_group_by_id(db: Session, group_id: int):
     if not group:
         return None
 
-    return {
-        "id": group.id,
-        "group_timestamp": group.group_timestamp,
-        "frames": [
-            {
-                "id": item.frame.id,
-                "device_id": item.frame.device_id,
-                "timestamp": item.frame.timestamp,
-                "file_path": item.frame.file_path,
-            }
-            for item in group.frames
-        ]
-    }
+    return serialize_sync_group(group)
 
 
 def get_unsynced_frames(db: Session):
@@ -120,7 +123,10 @@ def build_sync_groups(db: Session, threshold_ms: int = 50):
                 used_devices.add(candidate.device_id)
 
         if len(selected) >= 2:
-            group = SyncGroup(group_timestamp=base_frame.timestamp)
+            group = SyncGroup(
+                group_timestamp=base_frame.timestamp,
+                dispatch_status=DISPATCH_STATUS_PENDING,
+            )
             db.add(group)
             db.flush()
 
@@ -136,6 +142,30 @@ def build_sync_groups(db: Session, threshold_ms: int = 50):
             db.refresh(group)
 
     return created_groups
+
+
+def record_sync_group_dispatch_result(db: Session, group_id: int, result: dict):
+    group = db.query(SyncGroup).filter(SyncGroup.id == group_id).first()
+
+    if group is None:
+        return None
+
+    attempted_at = int(time.time() * 1000)
+    success = bool(result.get("success"))
+
+    group.dispatch_status = (
+        DISPATCH_STATUS_SUCCESS if success else DISPATCH_STATUS_FAILED
+    )
+    group.last_dispatch_at = attempted_at
+    group.last_dispatch_status_code = result.get("status_code")
+    group.last_dispatch_error = None if success else result.get("error")
+
+    if success:
+        group.dispatched_at = attempted_at
+
+    db.commit()
+    db.refresh(group)
+    return group
 
 def build_dispatch_payload(group: dict):
     return {

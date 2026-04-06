@@ -9,6 +9,7 @@ from app.services.sync_service import (
     dispatch_sync_group,
     get_sync_group_by_id,
     get_sync_groups,
+    record_sync_group_dispatch_result,
 )
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -57,4 +58,5 @@ async def dispatch_group(
         raise HTTPException(status_code=404, detail="Sync group not found")
 
     result = await dispatch_sync_group(group, PROCESSING_SERVER_URL)
+    record_sync_group_dispatch_result(db, group_id, result)
     return result

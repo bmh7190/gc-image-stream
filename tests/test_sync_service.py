@@ -5,13 +5,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
-from app.models import SyncFrame
+from app.models import SyncFrame, SyncGroup
 from app.services.frame_service import create_frame
 from app.services.sync_service import (
     build_dispatch_payload,
     build_sync_groups,
     create_sync_group,
     dispatch_sync_group,
+    record_sync_group_dispatch_result,
 )
 
 
@@ -186,5 +187,47 @@ def test_build_sync_groups_keeps_only_one_frame_per_device_in_group():
         assert len(groups) == 1
         synced_frame_ids = {item.frame_id for item in db.query(SyncFrame).all()}
         assert synced_frame_ids == {first.id, third.id}
+    finally:
+        db.close()
+
+
+def test_record_sync_group_dispatch_result_marks_success_and_failure():
+    db = build_test_session()
+    try:
+        group = SyncGroup(group_timestamp=1000, dispatch_status="pending")
+        db.add(group)
+        db.commit()
+        db.refresh(group)
+
+        success_group = record_sync_group_dispatch_result(
+            db,
+            group.id,
+            {
+                "success": True,
+                "status_code": 200,
+                "response_body": {"message": "ok"},
+            },
+        )
+
+        assert success_group.dispatch_status == "success"
+        assert success_group.last_dispatch_status_code == 200
+        assert success_group.last_dispatch_error is None
+        assert success_group.last_dispatch_at is not None
+        assert success_group.dispatched_at is not None
+
+        failed_group = record_sync_group_dispatch_result(
+            db,
+            group.id,
+            {
+                "success": False,
+                "error": "Processing server timeout",
+            },
+        )
+
+        assert failed_group.dispatch_status == "failed"
+        assert failed_group.last_dispatch_status_code is None
+        assert failed_group.last_dispatch_error == "Processing server timeout"
+        assert failed_group.last_dispatch_at is not None
+        assert failed_group.dispatched_at is not None
     finally:
         db.close()

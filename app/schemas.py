@@ -24,4 +24,9 @@ class SyncGroupResponse(BaseModel):
 
     id: int
     group_timestamp: int
+    dispatch_status: str
+    last_dispatch_at: int | None = None
+    last_dispatch_status_code: int | None = None
+    last_dispatch_error: str | None = None
+    dispatched_at: int | None = None
     frames: list[SyncFrameDetail]

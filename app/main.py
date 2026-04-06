@@ -1,17 +1,19 @@
 import asyncio
 from fastapi import FastAPI
 
-from app.db import Base, engine, SessionLocal
+from app.db import Base, engine, SessionLocal, ensure_database_schema
 from app.config.server import PROCESSING_SERVER_URL
 from app.routes.frames import router as frames_router
 from app.routes.sync import router as sync_router
 from app.services.sync_service import (
     build_sync_groups,
-    get_sync_group_by_id,
     dispatch_sync_group,
+    get_sync_group_by_id,
+    record_sync_group_dispatch_result,
 )
 
 Base.metadata.create_all(bind=engine)
+ensure_database_schema()
 
 app = FastAPI(title="GC Image Stream")
 
@@ -40,6 +42,7 @@ async def auto_sync_loop():
                             continue
 
                         result = await dispatch_sync_group(group_data, PROCESSING_SERVER_URL)
+                        record_sync_group_dispatch_result(db, group.id, result)
 
                         if result.get("success"):
                             print(f"[AUTO DISPATCH SUCCESS] group_id={group.id}")

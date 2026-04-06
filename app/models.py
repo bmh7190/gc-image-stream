@@ -20,6 +20,11 @@ class SyncGroup(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     group_timestamp = Column(BigInteger, index=True, nullable=False)
+    dispatch_status = Column(String, nullable=False, default="pending", index=True)
+    last_dispatch_at = Column(BigInteger, nullable=True)
+    last_dispatch_status_code = Column(Integer, nullable=True)
+    last_dispatch_error = Column(String, nullable=True)
+    dispatched_at = Column(BigInteger, nullable=True)
 
     frames = relationship(
         "SyncFrame",
