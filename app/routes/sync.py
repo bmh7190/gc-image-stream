@@ -4,7 +4,7 @@ from typing import Literal
 
 from app.config.server import PROCESSING_SERVER_URL
 from app.db import get_db
-from app.schemas import SyncGroupResponse, SyncSummaryResponse
+from app.schemas import SyncGroupListResponse, SyncGroupResponse, SyncSummaryResponse
 from app.services.sync_service import (
     build_sync_groups,
     can_manually_retry_group,
@@ -29,7 +29,7 @@ def build_groups(
     }
 
 
-@router.get("/groups", response_model=list[SyncGroupResponse])
+@router.get("/groups", response_model=SyncGroupListResponse)
 def list_groups(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),

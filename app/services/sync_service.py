@@ -129,6 +129,8 @@ def get_sync_groups(
             .filter(SyncGroup.dispatch_status != DISPATCH_STATUS_EXHAUSTED)
         )
 
+    total = query.count()
+
     sort_column = SYNC_GROUP_SORT_FIELDS[sort_by]
     ordered_column = (
         sort_column.asc() if sort_order == "asc" else sort_column.desc()
@@ -145,7 +147,12 @@ def get_sync_groups(
         .all()
     )
 
-    return [serialize_sync_group(group) for group in groups]
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": [serialize_sync_group(group) for group in groups],
+    }
 
 
 def get_sync_summary(db: Session, now_ms: int | None = None):

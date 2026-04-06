@@ -34,6 +34,13 @@ class SyncGroupResponse(BaseModel):
     frames: list[SyncFrameDetail]
 
 
+class SyncGroupListResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: list[SyncGroupResponse]
+
+
 class SyncSummaryResponse(BaseModel):
     total_groups: int
     pending: int

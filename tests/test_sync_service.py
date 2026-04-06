@@ -343,8 +343,10 @@ def test_get_sync_groups_supports_retry_ready_and_exhausted_filters():
         retry_ready_groups = get_sync_groups(db, retry_ready=True, now_ms=2_000)
         exhausted_groups = get_sync_groups(db, exhausted=True, now_ms=2_000)
 
-        assert [group["id"] for group in retry_ready_groups] == [ready.id]
-        assert [group["id"] for group in exhausted_groups] == [exhausted.id]
+        assert retry_ready_groups["total"] == 1
+        assert exhausted_groups["total"] == 1
+        assert [group["id"] for group in retry_ready_groups["items"]] == [ready.id]
+        assert [group["id"] for group in exhausted_groups["items"]] == [exhausted.id]
     finally:
         db.close()
 
@@ -378,7 +380,10 @@ def test_get_sync_groups_supports_offset_and_sorting():
             sort_order="desc",
         )
 
-        assert [group["id"] for group in groups] == [middle_retry.id]
+        assert groups["total"] == 3
+        assert groups["limit"] == 1
+        assert groups["offset"] == 1
+        assert [group["id"] for group in groups["items"]] == [middle_retry.id]
     finally:
         db.close()
 

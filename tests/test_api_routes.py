@@ -74,16 +74,19 @@ def test_sync_build_and_group_listing_flow(client):
     assert groups_response.status_code == 200
 
     groups = groups_response.json()
-    assert len(groups) == 1
-    assert groups[0]["group_timestamp"] == 1000
-    assert groups[0]["dispatch_status"] == "pending"
-    assert groups[0]["last_dispatch_at"] is None
-    assert groups[0]["last_dispatch_status_code"] is None
-    assert groups[0]["last_dispatch_error"] is None
-    assert groups[0]["dispatched_at"] is None
-    assert groups[0]["retry_count"] == 0
-    assert groups[0]["next_retry_at"] is None
-    assert {frame["device_id"] for frame in groups[0]["frames"]} == {"camera1", "camera2"}
+    assert groups["total"] == 1
+    assert groups["limit"] == 20
+    assert groups["offset"] == 0
+    assert len(groups["items"]) == 1
+    assert groups["items"][0]["group_timestamp"] == 1000
+    assert groups["items"][0]["dispatch_status"] == "pending"
+    assert groups["items"][0]["last_dispatch_at"] is None
+    assert groups["items"][0]["last_dispatch_status_code"] is None
+    assert groups["items"][0]["last_dispatch_error"] is None
+    assert groups["items"][0]["dispatched_at"] is None
+    assert groups["items"][0]["retry_count"] == 0
+    assert groups["items"][0]["next_retry_at"] is None
+    assert {frame["device_id"] for frame in groups["items"][0]["frames"]} == {"camera1", "camera2"}
 
 
 def test_dispatch_endpoint_returns_dispatch_service_result(client, monkeypatch):
@@ -116,7 +119,7 @@ def test_dispatch_endpoint_returns_dispatch_service_result(client, monkeypatch):
     monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_dispatch)
 
     groups_response = client.get("/sync/groups")
-    group_id = groups_response.json()[0]["id"]
+    group_id = groups_response.json()["items"][0]["id"]
 
     dispatch_response = client.post(f"/sync/groups/{group_id}/dispatch")
     group_response = client.get(f"/sync/groups/{group_id}")
@@ -161,7 +164,7 @@ def test_dispatch_endpoint_tracks_failed_dispatch_state(client, monkeypatch):
     monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_dispatch)
 
     groups_response = client.get("/sync/groups")
-    group_id = groups_response.json()[0]["id"]
+    group_id = groups_response.json()["items"][0]["id"]
 
     dispatch_response = client.post(f"/sync/groups/{group_id}/dispatch")
     group_response = client.get(f"/sync/groups/{group_id}")
@@ -193,7 +196,7 @@ def test_sync_group_filters_support_retry_ready_and_exhausted(client, monkeypatc
     build_response = client.post("/sync/build", params={"threshold_ms": 20})
     assert build_response.status_code == 200
 
-    group_ids = [group["id"] for group in client.get("/sync/groups").json()]
+    group_ids = [group["id"] for group in client.get("/sync/groups").json()["items"]]
     first_group_id, second_group_id = sorted(group_ids)
 
     async def fake_failed_dispatch(group, processing_server_url):
@@ -212,7 +215,7 @@ def test_sync_group_filters_support_retry_ready_and_exhausted(client, monkeypatc
     monkeypatch.setattr(sync_service.time, "time", lambda: 106.0)
     retry_ready_response = client.get("/sync/groups", params={"retry_ready": "true"})
     assert retry_ready_response.status_code == 200
-    assert [group["id"] for group in retry_ready_response.json()] == [first_group_id]
+    assert [group["id"] for group in retry_ready_response.json()["items"]] == [first_group_id]
 
     for _ in range(3):
         response = client.post(f"/sync/groups/{second_group_id}/dispatch")
@@ -220,8 +223,8 @@ def test_sync_group_filters_support_retry_ready_and_exhausted(client, monkeypatc
 
     exhausted_response = client.get("/sync/groups", params={"exhausted": "true"})
     assert exhausted_response.status_code == 200
-    assert [group["id"] for group in exhausted_response.json()] == [second_group_id]
-    assert exhausted_response.json()[0]["dispatch_status"] == "exhausted"
+    assert [group["id"] for group in exhausted_response.json()["items"]] == [second_group_id]
+    assert exhausted_response.json()["items"][0]["dispatch_status"] == "exhausted"
 
 
 def test_sync_group_listing_supports_pagination_and_sorting(client):
@@ -258,8 +261,11 @@ def test_sync_group_listing_supports_pagination_and_sorting(client):
 
     assert response.status_code == 200
     groups = response.json()
-    assert len(groups) == 1
-    assert groups[0]["group_timestamp"] == 2000
+    assert groups["total"] == 3
+    assert groups["limit"] == 1
+    assert groups["offset"] == 1
+    assert len(groups["items"]) == 1
+    assert groups["items"][0]["group_timestamp"] == 2000
 
 
 def test_manual_retry_endpoint_retries_failed_group(client, monkeypatch):
@@ -276,7 +282,7 @@ def test_manual_retry_endpoint_retries_failed_group(client, monkeypatch):
 
     build_response = client.post("/sync/build", params={"threshold_ms": 20})
     assert build_response.status_code == 200
-    group_id = client.get("/sync/groups").json()[0]["id"]
+    group_id = client.get("/sync/groups").json()["items"][0]["id"]
 
     async def fake_failed_dispatch(group, processing_server_url):
         return {
@@ -322,7 +328,7 @@ def test_manual_retry_endpoint_rejects_success_group(client, monkeypatch):
 
     build_response = client.post("/sync/build", params={"threshold_ms": 20})
     assert build_response.status_code == 200
-    group_id = client.get("/sync/groups").json()[0]["id"]
+    group_id = client.get("/sync/groups").json()["items"][0]["id"]
 
     async def fake_success_dispatch(group, processing_server_url):
         return {
@@ -364,7 +370,7 @@ def test_sync_summary_endpoint_returns_operational_counts(client, monkeypatch):
     build_response = client.post("/sync/build", params={"threshold_ms": 20})
     assert build_response.status_code == 200
 
-    group_ids = sorted(group["id"] for group in client.get("/sync/groups").json())
+    group_ids = sorted(group["id"] for group in client.get("/sync/groups").json()["items"])
     retry_group_id, success_group_id, exhausted_group_id = group_ids
 
     async def fake_timeout_dispatch(group, processing_server_url):
