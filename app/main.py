@@ -22,7 +22,15 @@ logger = logging.getLogger("gc_image_stream.app")
 Base.metadata.create_all(bind=engine)
 ensure_database_schema()
 
-app = FastAPI(title="GC Image Stream")
+app = FastAPI(
+    title="GC Image Stream",
+    summary="멀티 카메라 프레임 수집 및 동기화 전송을 담당하는 컬렉션 백엔드",
+    description=(
+        "GC Image Stream은 카메라 앱 또는 수집기에서 전달된 프레임 데이터를 받아 파일과 "
+        "메타데이터를 저장하고, 타임스탬프 기준으로 sync group을 만든 뒤 외부 처리 서버로 "
+        "전달하는 수집 서버입니다. 처리 서버 내부 동작은 이 API의 범위에 포함되지 않습니다."
+    ),
+)
 
 app.include_router(frames_router)
 app.include_router(sync_router)
@@ -139,6 +147,10 @@ async def startup_event():
     )
 
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="서비스 상태 확인",
+    description="수집 서버가 실행 중인지 간단히 확인하기 위한 루트 엔드포인트입니다.",
+)
 def root():
     return {"message": "GC Image Stream server is running"}
