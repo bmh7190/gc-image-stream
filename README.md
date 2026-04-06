@@ -136,6 +136,13 @@ REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 - `sort_by=id|group_timestamp|last_dispatch_at|next_retry_at|retry_count`
 - `sort_order=asc|desc`
 
+`GET /sync/groups` returns:
+
+- `total`
+- `limit`
+- `offset`
+- `items`
+
 Each sync group response includes dispatch state metadata such as:
 
 - `dispatch_status`
