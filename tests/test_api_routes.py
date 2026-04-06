@@ -224,6 +224,44 @@ def test_sync_group_filters_support_retry_ready_and_exhausted(client, monkeypatc
     assert exhausted_response.json()[0]["dispatch_status"] == "exhausted"
 
 
+def test_sync_group_listing_supports_pagination_and_sorting(client):
+    for device_id, timestamp in [
+        ("camera1", 1000),
+        ("camera2", 1010),
+        ("camera3", 2000),
+        ("camera4", 2010),
+        ("camera5", 3000),
+        ("camera6", 3010),
+    ]:
+        response = client.post(
+            "/frames/register",
+            data={
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "file_path": f"storage/{device_id}/{timestamp}.jpg",
+            },
+        )
+        assert response.status_code == 200
+
+    build_response = client.post("/sync/build", params={"threshold_ms": 20})
+    assert build_response.status_code == 200
+
+    response = client.get(
+        "/sync/groups",
+        params={
+            "limit": 1,
+            "offset": 1,
+            "sort_by": "group_timestamp",
+            "sort_order": "asc",
+        },
+    )
+
+    assert response.status_code == 200
+    groups = response.json()
+    assert len(groups) == 1
+    assert groups[0]["group_timestamp"] == 2000
+
+
 def test_manual_retry_endpoint_retries_failed_group(client, monkeypatch):
     for device_id, timestamp in [("camera1", 1000), ("camera2", 1010)]:
         response = client.post(

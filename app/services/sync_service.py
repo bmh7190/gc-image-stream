@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Literal
 
 import httpx
 from sqlalchemy import func
@@ -20,6 +21,14 @@ RETRY_DELAYS_MS = (5_000, 15_000, 30_000)
 
 
 logger = logging.getLogger("gc_image_stream.sync")
+
+SYNC_GROUP_SORT_FIELDS = {
+    "id": SyncGroup.id,
+    "group_timestamp": SyncGroup.group_timestamp,
+    "last_dispatch_at": SyncGroup.last_dispatch_at,
+    "next_retry_at": SyncGroup.next_retry_at,
+    "retry_count": SyncGroup.retry_count,
+}
 
 def create_sync_group(db: Session, group_timestamp: int, frame_ids: list[int]) -> SyncGroup:
     group = SyncGroup(
@@ -71,9 +80,18 @@ def build_sync_group_query(db: Session):
 def get_sync_groups(
     db: Session,
     limit: int = 20,
+    offset: int = 0,
     dispatch_status: str | None = None,
     retry_ready: bool | None = None,
     exhausted: bool | None = None,
+    sort_by: Literal[
+        "id",
+        "group_timestamp",
+        "last_dispatch_at",
+        "next_retry_at",
+        "retry_count",
+    ] = "group_timestamp",
+    sort_order: Literal["asc", "desc"] = "desc",
     now_ms: int | None = None,
 ):
     if now_ms is None:
@@ -111,9 +129,18 @@ def get_sync_groups(
             .filter(SyncGroup.dispatch_status != DISPATCH_STATUS_EXHAUSTED)
         )
 
+    sort_column = SYNC_GROUP_SORT_FIELDS[sort_by]
+    ordered_column = (
+        sort_column.asc() if sort_order == "asc" else sort_column.desc()
+    )
+    ordered_group_id = (
+        SyncGroup.id.asc() if sort_order == "asc" else SyncGroup.id.desc()
+    )
+
     groups = (
         query
-        .order_by(SyncGroup.group_timestamp.desc())
+        .order_by(sort_column.is_(None), ordered_column, ordered_group_id)
+        .offset(offset)
         .limit(limit)
         .all()
     )

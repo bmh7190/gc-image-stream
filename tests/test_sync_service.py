@@ -349,6 +349,40 @@ def test_get_sync_groups_supports_retry_ready_and_exhausted_filters():
         db.close()
 
 
+def test_get_sync_groups_supports_offset_and_sorting():
+    db = build_test_session()
+    try:
+        low_retry = SyncGroup(
+            group_timestamp=1000,
+            dispatch_status="pending",
+            retry_count=0,
+        )
+        high_retry = SyncGroup(
+            group_timestamp=2000,
+            dispatch_status="retry_scheduled",
+            retry_count=3,
+        )
+        middle_retry = SyncGroup(
+            group_timestamp=3000,
+            dispatch_status="failed",
+            retry_count=1,
+        )
+        db.add_all([low_retry, high_retry, middle_retry])
+        db.commit()
+
+        groups = get_sync_groups(
+            db,
+            limit=1,
+            offset=1,
+            sort_by="retry_count",
+            sort_order="desc",
+        )
+
+        assert [group["id"] for group in groups] == [middle_retry.id]
+    finally:
+        db.close()
+
+
 def test_can_manually_retry_group_blocks_success_groups():
     assert can_manually_retry_group({"dispatch_status": "failed"})
     assert can_manually_retry_group({"dispatch_status": "retry_scheduled"})

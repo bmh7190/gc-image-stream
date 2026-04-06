@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from typing import Literal
 
 from app.config.server import PROCESSING_SERVER_URL
 from app.db import get_db
@@ -30,18 +31,30 @@ def build_groups(
 
 @router.get("/groups", response_model=list[SyncGroupResponse])
 def list_groups(
-    limit: int = 20,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     status: str | None = Query(default=None),
     retry_ready: bool | None = Query(default=None),
     exhausted: bool | None = Query(default=None),
+    sort_by: Literal[
+        "id",
+        "group_timestamp",
+        "last_dispatch_at",
+        "next_retry_at",
+        "retry_count",
+    ] = Query(default="group_timestamp"),
+    sort_order: Literal["asc", "desc"] = Query(default="desc"),
     db: Session = Depends(get_db),
 ):
     return get_sync_groups(
         db,
         limit=limit,
+        offset=offset,
         dispatch_status=status,
         retry_ready=retry_ready,
         exhausted=exhausted,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 
