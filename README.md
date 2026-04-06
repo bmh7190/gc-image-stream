@@ -117,7 +117,7 @@ REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 
 `GET /sync/groups` supports operational filters:
 
-- `status=pending|success|failed`
+- `status=pending|retry_scheduled|success|failed|exhausted`
 - `retry_ready=true|false`
 - `exhausted=true|false`
 
@@ -130,6 +130,14 @@ Each sync group response includes dispatch state metadata such as:
 - `dispatched_at`
 - `retry_count`
 - `next_retry_at`
+
+Dispatch status meanings:
+
+- `pending`: the group has not been dispatched yet
+- `retry_scheduled`: the last dispatch failed, but the server will retry it later
+- `success`: the group was dispatched successfully
+- `failed`: the dispatch failed and is not retryable
+- `exhausted`: the dispatch failed repeatedly and has reached the retry limit
 
 ## Dispatch Retry Policy
 
@@ -145,6 +153,12 @@ Non-retryable cases:
 
 - client-side request errors such as `400`
 - payload or endpoint problems that will fail again without code/data changes
+
+Status behavior:
+
+- retryable failures become `retry_scheduled`
+- non-retryable failures become `failed`
+- retryable failures that hit the retry limit become `exhausted`
 
 Current retry schedule:
 
