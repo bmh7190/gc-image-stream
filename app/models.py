@@ -25,6 +25,8 @@ class SyncGroup(Base):
     last_dispatch_status_code = Column(Integer, nullable=True)
     last_dispatch_error = Column(String, nullable=True)
     dispatched_at = Column(BigInteger, nullable=True)
+    retry_count = Column(Integer, nullable=False, default=0)
+    next_retry_at = Column(BigInteger, nullable=True)
 
     frames = relationship(
         "SyncFrame",

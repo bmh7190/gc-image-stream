@@ -80,6 +80,8 @@ def test_sync_build_and_group_listing_flow(client):
     assert groups[0]["last_dispatch_status_code"] is None
     assert groups[0]["last_dispatch_error"] is None
     assert groups[0]["dispatched_at"] is None
+    assert groups[0]["retry_count"] == 0
+    assert groups[0]["next_retry_at"] is None
     assert {frame["device_id"] for frame in groups[0]["frames"]} == {"camera1", "camera2"}
 
 
@@ -127,6 +129,8 @@ def test_dispatch_endpoint_returns_dispatch_service_result(client, monkeypatch):
     assert group_response.json()["last_dispatch_error"] is None
     assert group_response.json()["last_dispatch_at"] is not None
     assert group_response.json()["dispatched_at"] is not None
+    assert group_response.json()["retry_count"] == 0
+    assert group_response.json()["next_retry_at"] is None
     assert captured["group"]["id"] == group_id
     assert captured["processing_server_url"] == sync_routes.PROCESSING_SERVER_URL
 
@@ -169,3 +173,5 @@ def test_dispatch_endpoint_tracks_failed_dispatch_state(client, monkeypatch):
     assert group_response.json()["last_dispatch_error"] == "Processing server timeout"
     assert group_response.json()["last_dispatch_at"] is not None
     assert group_response.json()["dispatched_at"] is None
+    assert group_response.json()["retry_count"] == 1
+    assert group_response.json()["next_retry_at"] is not None

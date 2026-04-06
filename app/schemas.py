@@ -29,4 +29,6 @@ class SyncGroupResponse(BaseModel):
     last_dispatch_status_code: int | None = None
     last_dispatch_error: str | None = None
     dispatched_at: int | None = None
+    retry_count: int
+    next_retry_at: int | None = None
     frames: list[SyncFrameDetail]

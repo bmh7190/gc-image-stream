@@ -40,6 +40,14 @@ SYNC_GROUP_SCHEMA_UPDATES = {
         "ALTER TABLE sync_groups "
         "ADD COLUMN dispatched_at BIGINT"
     ),
+    "retry_count": (
+        "ALTER TABLE sync_groups "
+        "ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0"
+    ),
+    "next_retry_at": (
+        "ALTER TABLE sync_groups "
+        "ADD COLUMN next_retry_at BIGINT"
+    ),
 }
 
 

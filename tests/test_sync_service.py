@@ -12,6 +12,9 @@ from app.services.sync_service import (
     build_sync_groups,
     create_sync_group,
     dispatch_sync_group,
+    get_groups_ready_for_retry,
+    get_retry_delay_ms,
+    is_retryable_dispatch_result,
     record_sync_group_dispatch_result,
 )
 
@@ -214,6 +217,8 @@ def test_record_sync_group_dispatch_result_marks_success_and_failure():
         assert success_group.last_dispatch_error is None
         assert success_group.last_dispatch_at is not None
         assert success_group.dispatched_at is not None
+        assert success_group.retry_count == 0
+        assert success_group.next_retry_at is None
 
         failed_group = record_sync_group_dispatch_result(
             db,
@@ -229,5 +234,80 @@ def test_record_sync_group_dispatch_result_marks_success_and_failure():
         assert failed_group.last_dispatch_error == "Processing server timeout"
         assert failed_group.last_dispatch_at is not None
         assert failed_group.dispatched_at is not None
+        assert failed_group.retry_count == 1
+        assert failed_group.next_retry_at == (
+            failed_group.last_dispatch_at + get_retry_delay_ms(1)
+        )
     finally:
         db.close()
+
+
+def test_record_sync_group_dispatch_result_does_not_schedule_retry_for_non_retryable_error():
+    db = build_test_session()
+    try:
+        group = SyncGroup(group_timestamp=1000, dispatch_status="pending")
+        db.add(group)
+        db.commit()
+        db.refresh(group)
+
+        failed_group = record_sync_group_dispatch_result(
+            db,
+            group.id,
+            {
+                "success": False,
+                "status_code": 400,
+                "error": "Processing server returned HTTP 400",
+            },
+        )
+
+        assert failed_group.dispatch_status == "failed"
+        assert failed_group.retry_count == 1
+        assert failed_group.next_retry_at is None
+    finally:
+        db.close()
+
+
+def test_get_groups_ready_for_retry_returns_only_due_retryable_groups():
+    db = build_test_session()
+    try:
+        ready = SyncGroup(
+            group_timestamp=1000,
+            dispatch_status="failed",
+            retry_count=1,
+            next_retry_at=1_000,
+        )
+        not_due = SyncGroup(
+            group_timestamp=2000,
+            dispatch_status="failed",
+            retry_count=1,
+            next_retry_at=5_000,
+        )
+        success = SyncGroup(
+            group_timestamp=3000,
+            dispatch_status="success",
+            retry_count=0,
+            next_retry_at=None,
+        )
+        db.add_all([ready, not_due, success])
+        db.commit()
+
+        groups = get_groups_ready_for_retry(db, now_ms=2_000)
+
+        assert [group["id"] for group in groups] == [ready.id]
+    finally:
+        db.close()
+
+
+def test_is_retryable_dispatch_result_matches_retry_policy():
+    assert is_retryable_dispatch_result(
+        {"success": False, "error": "Processing server timeout"}
+    )
+    assert is_retryable_dispatch_result(
+        {"success": False, "status_code": 503}
+    )
+    assert not is_retryable_dispatch_result(
+        {"success": False, "status_code": 400}
+    )
+    assert not is_retryable_dispatch_result(
+        {"success": True, "status_code": 200}
+    )
