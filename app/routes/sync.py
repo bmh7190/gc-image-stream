@@ -76,7 +76,7 @@ async def dispatch_group(
         raise HTTPException(status_code=404, detail="Sync group not found")
 
     result = await dispatch_sync_group(group, PROCESSING_SERVER_URL)
-    record_sync_group_dispatch_result(db, group_id, result)
+    record_sync_group_dispatch_result(db, group_id, result, source="manual_dispatch")
     return result
 
 
@@ -97,5 +97,5 @@ async def retry_group(
         )
 
     result = await dispatch_sync_group(group, PROCESSING_SERVER_URL)
-    record_sync_group_dispatch_result(db, group_id, result)
+    record_sync_group_dispatch_result(db, group_id, result, source="manual_retry")
     return result

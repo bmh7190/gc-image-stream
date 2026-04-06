@@ -1,9 +1,11 @@
+import logging
 import time
 
 import httpx
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.logging_config import format_log_event
 from app.models import Frame, SyncGroup, SyncFrame
 
 
@@ -15,6 +17,9 @@ DISPATCH_STATUS_EXHAUSTED = "exhausted"
 RETRYABLE_HTTP_STATUS_CODES = {502, 503, 504}
 MAX_DISPATCH_RETRIES = 3
 RETRY_DELAYS_MS = (5_000, 15_000, 30_000)
+
+
+logger = logging.getLogger("gc_image_stream.sync")
 
 def create_sync_group(db: Session, group_timestamp: int, frame_ids: list[int]) -> SyncGroup:
     group = SyncGroup(
@@ -277,7 +282,12 @@ def can_manually_retry_group(group: dict):
     return group["dispatch_status"] != DISPATCH_STATUS_SUCCESS
 
 
-def record_sync_group_dispatch_result(db: Session, group_id: int, result: dict):
+def record_sync_group_dispatch_result(
+    db: Session,
+    group_id: int,
+    result: dict,
+    source: str = "manual",
+):
     group = db.query(SyncGroup).filter(SyncGroup.id == group_id).first()
 
     if group is None:
@@ -312,6 +322,20 @@ def record_sync_group_dispatch_result(db: Session, group_id: int, result: dict):
 
     db.commit()
     db.refresh(group)
+
+    logger.info(
+        format_log_event(
+            "sync_group_dispatch_recorded",
+            source=source,
+            group_id=group.id,
+            dispatch_status=group.dispatch_status,
+            status_code=group.last_dispatch_status_code,
+            retry_count=group.retry_count,
+            next_retry_at=group.next_retry_at,
+            error=group.last_dispatch_error,
+        )
+    )
+
     return group
 
 def build_dispatch_payload(group: dict):
