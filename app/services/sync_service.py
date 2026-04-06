@@ -7,8 +7,10 @@ from app.models import Frame, SyncGroup, SyncFrame
 
 
 DISPATCH_STATUS_PENDING = "pending"
+DISPATCH_STATUS_RETRY_SCHEDULED = "retry_scheduled"
 DISPATCH_STATUS_SUCCESS = "success"
 DISPATCH_STATUS_FAILED = "failed"
+DISPATCH_STATUS_EXHAUSTED = "exhausted"
 RETRYABLE_HTTP_STATUS_CODES = {502, 503, 504}
 MAX_DISPATCH_RETRIES = 3
 RETRY_DELAYS_MS = (5_000, 15_000, 30_000)
@@ -79,7 +81,7 @@ def get_sync_groups(
     if retry_ready is True:
         query = (
             query
-            .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_FAILED)
+            .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_RETRY_SCHEDULED)
             .filter(SyncGroup.next_retry_at.is_not(None))
             .filter(SyncGroup.next_retry_at <= now_ms)
         )
@@ -95,18 +97,12 @@ def get_sync_groups(
     if exhausted is True:
         query = (
             query
-            .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_FAILED)
-            .filter(SyncGroup.retry_count >= MAX_DISPATCH_RETRIES)
-            .filter(SyncGroup.next_retry_at.is_(None))
+            .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_EXHAUSTED)
         )
     elif exhausted is False:
         query = (
             query
-            .filter(
-                (SyncGroup.retry_count < MAX_DISPATCH_RETRIES) |
-                (SyncGroup.next_retry_at.is_not(None)) |
-                (SyncGroup.dispatch_status != DISPATCH_STATUS_FAILED)
-            )
+            .filter(SyncGroup.dispatch_status != DISPATCH_STATUS_EXHAUSTED)
         )
 
     groups = (
@@ -213,7 +209,7 @@ def get_groups_ready_for_retry(
 
     groups = (
         build_sync_group_query(db)
-        .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_FAILED)
+        .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_RETRY_SCHEDULED)
         .filter(SyncGroup.next_retry_at.is_not(None))
         .filter(SyncGroup.next_retry_at <= now_ms)
         .order_by(SyncGroup.next_retry_at.asc(), SyncGroup.group_timestamp.asc())
@@ -272,8 +268,13 @@ def record_sync_group_dispatch_result(db: Session, group_id: int, result: dict):
     else:
         group.retry_count += 1
         if retryable and group.retry_count < MAX_DISPATCH_RETRIES:
+            group.dispatch_status = DISPATCH_STATUS_RETRY_SCHEDULED
             group.next_retry_at = attempted_at + get_retry_delay_ms(group.retry_count)
+        elif retryable:
+            group.dispatch_status = DISPATCH_STATUS_EXHAUSTED
+            group.next_retry_at = None
         else:
+            group.dispatch_status = DISPATCH_STATUS_FAILED
             group.next_retry_at = None
 
     db.commit()

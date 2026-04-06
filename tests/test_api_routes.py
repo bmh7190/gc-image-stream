@@ -169,7 +169,7 @@ def test_dispatch_endpoint_tracks_failed_dispatch_state(client, monkeypatch):
     assert dispatch_response.status_code == 200
     assert dispatch_response.json()["success"] is False
     assert group_response.status_code == 200
-    assert group_response.json()["dispatch_status"] == "failed"
+    assert group_response.json()["dispatch_status"] == "retry_scheduled"
     assert group_response.json()["last_dispatch_status_code"] is None
     assert group_response.json()["last_dispatch_error"] == "Processing server timeout"
     assert group_response.json()["last_dispatch_at"] is not None
@@ -221,6 +221,7 @@ def test_sync_group_filters_support_retry_ready_and_exhausted(client, monkeypatc
     exhausted_response = client.get("/sync/groups", params={"exhausted": "true"})
     assert exhausted_response.status_code == 200
     assert [group["id"] for group in exhausted_response.json()] == [second_group_id]
+    assert exhausted_response.json()[0]["dispatch_status"] == "exhausted"
 
 
 def test_manual_retry_endpoint_retries_failed_group(client, monkeypatch):

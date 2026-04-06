@@ -231,7 +231,7 @@ def test_record_sync_group_dispatch_result_marks_success_and_failure():
             },
         )
 
-        assert failed_group.dispatch_status == "failed"
+        assert failed_group.dispatch_status == "retry_scheduled"
         assert failed_group.last_dispatch_status_code is None
         assert failed_group.last_dispatch_error == "Processing server timeout"
         assert failed_group.last_dispatch_at is not None
@@ -274,13 +274,13 @@ def test_get_groups_ready_for_retry_returns_only_due_retryable_groups():
     try:
         ready = SyncGroup(
             group_timestamp=1000,
-            dispatch_status="failed",
+            dispatch_status="retry_scheduled",
             retry_count=1,
             next_retry_at=1_000,
         )
         not_due = SyncGroup(
             group_timestamp=2000,
-            dispatch_status="failed",
+            dispatch_status="retry_scheduled",
             retry_count=1,
             next_retry_at=5_000,
         )
@@ -320,13 +320,13 @@ def test_get_sync_groups_supports_retry_ready_and_exhausted_filters():
     try:
         ready = SyncGroup(
             group_timestamp=1000,
-            dispatch_status="failed",
+            dispatch_status="retry_scheduled",
             retry_count=1,
             next_retry_at=1_000,
         )
         exhausted = SyncGroup(
             group_timestamp=2000,
-            dispatch_status="failed",
+            dispatch_status="exhausted",
             retry_count=3,
             next_retry_at=None,
         )
@@ -350,5 +350,31 @@ def test_get_sync_groups_supports_retry_ready_and_exhausted_filters():
 
 def test_can_manually_retry_group_blocks_success_groups():
     assert can_manually_retry_group({"dispatch_status": "failed"})
+    assert can_manually_retry_group({"dispatch_status": "retry_scheduled"})
+    assert can_manually_retry_group({"dispatch_status": "exhausted"})
     assert can_manually_retry_group({"dispatch_status": "pending"})
     assert not can_manually_retry_group({"dispatch_status": "success"})
+
+
+def test_record_sync_group_dispatch_result_marks_retryable_failures_as_exhausted_at_limit():
+    db = build_test_session()
+    try:
+        group = SyncGroup(group_timestamp=1000, dispatch_status="pending", retry_count=2)
+        db.add(group)
+        db.commit()
+        db.refresh(group)
+
+        exhausted_group = record_sync_group_dispatch_result(
+            db,
+            group.id,
+            {
+                "success": False,
+                "error": "Processing server timeout",
+            },
+        )
+
+        assert exhausted_group.dispatch_status == "exhausted"
+        assert exhausted_group.retry_count == 3
+        assert exhausted_group.next_retry_at is None
+    finally:
+        db.close()
