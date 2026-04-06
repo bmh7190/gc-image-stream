@@ -110,10 +110,21 @@ REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 ### Sync
 
 - `POST /sync/build`
+- `GET /sync/summary`
 - `GET /sync/groups`
 - `GET /sync/groups/{group_id}`
 - `POST /sync/groups/{group_id}/dispatch`
 - `POST /sync/groups/{group_id}/retry`
+
+`GET /sync/summary` returns an operational summary across sync groups:
+
+- `total_groups`
+- `pending`
+- `retry_scheduled`
+- `success`
+- `failed`
+- `exhausted`
+- `retry_ready`
 
 `GET /sync/groups` supports operational filters:
 
