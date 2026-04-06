@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.routes import sync as sync_routes
+from app.services import sync_service
 
 
 def test_register_frame_is_idempotent(client):
@@ -175,3 +176,128 @@ def test_dispatch_endpoint_tracks_failed_dispatch_state(client, monkeypatch):
     assert group_response.json()["dispatched_at"] is None
     assert group_response.json()["retry_count"] == 1
     assert group_response.json()["next_retry_at"] is not None
+
+
+def test_sync_group_filters_support_retry_ready_and_exhausted(client, monkeypatch):
+    for device_id, timestamp in [("camera1", 1000), ("camera2", 1010), ("camera3", 2000), ("camera4", 2010)]:
+        response = client.post(
+            "/frames/register",
+            data={
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "file_path": f"storage/{device_id}/{timestamp}.jpg",
+            },
+        )
+        assert response.status_code == 200
+
+    build_response = client.post("/sync/build", params={"threshold_ms": 20})
+    assert build_response.status_code == 200
+
+    group_ids = [group["id"] for group in client.get("/sync/groups").json()]
+    first_group_id, second_group_id = sorted(group_ids)
+
+    async def fake_failed_dispatch(group, processing_server_url):
+        return {
+            "success": False,
+            "error": "Processing server timeout",
+            "payload": {"syncGroupId": group["id"]},
+        }
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_failed_dispatch)
+    monkeypatch.setattr(sync_service.time, "time", lambda: 100.0)
+
+    first_failure = client.post(f"/sync/groups/{first_group_id}/dispatch")
+    assert first_failure.status_code == 200
+
+    monkeypatch.setattr(sync_service.time, "time", lambda: 106.0)
+    retry_ready_response = client.get("/sync/groups", params={"retry_ready": "true"})
+    assert retry_ready_response.status_code == 200
+    assert [group["id"] for group in retry_ready_response.json()] == [first_group_id]
+
+    for _ in range(3):
+        response = client.post(f"/sync/groups/{second_group_id}/dispatch")
+        assert response.status_code == 200
+
+    exhausted_response = client.get("/sync/groups", params={"exhausted": "true"})
+    assert exhausted_response.status_code == 200
+    assert [group["id"] for group in exhausted_response.json()] == [second_group_id]
+
+
+def test_manual_retry_endpoint_retries_failed_group(client, monkeypatch):
+    for device_id, timestamp in [("camera1", 1000), ("camera2", 1010)]:
+        response = client.post(
+            "/frames/register",
+            data={
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "file_path": f"storage/{device_id}/{timestamp}.jpg",
+            },
+        )
+        assert response.status_code == 200
+
+    build_response = client.post("/sync/build", params={"threshold_ms": 20})
+    assert build_response.status_code == 200
+    group_id = client.get("/sync/groups").json()[0]["id"]
+
+    async def fake_failed_dispatch(group, processing_server_url):
+        return {
+            "success": False,
+            "error": "Processing server timeout",
+            "payload": {"syncGroupId": group["id"]},
+        }
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_failed_dispatch)
+    failed_response = client.post(f"/sync/groups/{group_id}/dispatch")
+    assert failed_response.status_code == 200
+
+    async def fake_success_dispatch(group, processing_server_url):
+        return {
+            "success": True,
+            "status_code": 200,
+            "response_body": {"message": "retried"},
+            "payload": {"syncGroupId": group["id"]},
+        }
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_success_dispatch)
+    retry_response = client.post(f"/sync/groups/{group_id}/retry")
+    group_response = client.get(f"/sync/groups/{group_id}")
+
+    assert retry_response.status_code == 200
+    assert retry_response.json()["success"] is True
+    assert group_response.json()["dispatch_status"] == "success"
+    assert group_response.json()["retry_count"] == 0
+    assert group_response.json()["next_retry_at"] is None
+
+
+def test_manual_retry_endpoint_rejects_success_group(client, monkeypatch):
+    for device_id, timestamp in [("camera1", 1000), ("camera2", 1010)]:
+        response = client.post(
+            "/frames/register",
+            data={
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "file_path": f"storage/{device_id}/{timestamp}.jpg",
+            },
+        )
+        assert response.status_code == 200
+
+    build_response = client.post("/sync/build", params={"threshold_ms": 20})
+    assert build_response.status_code == 200
+    group_id = client.get("/sync/groups").json()[0]["id"]
+
+    async def fake_success_dispatch(group, processing_server_url):
+        return {
+            "success": True,
+            "status_code": 200,
+            "response_body": {"message": "ok"},
+            "payload": {"syncGroupId": group["id"]},
+        }
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_success_dispatch)
+    dispatch_response = client.post(f"/sync/groups/{group_id}/dispatch")
+    assert dispatch_response.status_code == 200
+
+    retry_response = client.post(f"/sync/groups/{group_id}/retry")
+
+    assert retry_response.status_code == 400
+    assert retry_response.json()["detail"] == "Successful sync groups cannot be retried manually"

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.config.server import PROCESSING_SERVER_URL
@@ -6,6 +6,7 @@ from app.db import get_db
 from app.schemas import SyncGroupResponse
 from app.services.sync_service import (
     build_sync_groups,
+    can_manually_retry_group,
     dispatch_sync_group,
     get_sync_group_by_id,
     get_sync_groups,
@@ -29,9 +30,18 @@ def build_groups(
 @router.get("/groups", response_model=list[SyncGroupResponse])
 def list_groups(
     limit: int = 20,
+    status: str | None = Query(default=None),
+    retry_ready: bool | None = Query(default=None),
+    exhausted: bool | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
-    return get_sync_groups(db, limit)
+    return get_sync_groups(
+        db,
+        limit=limit,
+        dispatch_status=status,
+        retry_ready=retry_ready,
+        exhausted=exhausted,
+    )
 
 
 @router.get("/groups/{group_id}", response_model=SyncGroupResponse)
@@ -56,6 +66,27 @@ async def dispatch_group(
 
     if group is None:
         raise HTTPException(status_code=404, detail="Sync group not found")
+
+    result = await dispatch_sync_group(group, PROCESSING_SERVER_URL)
+    record_sync_group_dispatch_result(db, group_id, result)
+    return result
+
+
+@router.post("/groups/{group_id}/retry")
+async def retry_group(
+    group_id: int,
+    db: Session = Depends(get_db),
+):
+    group = get_sync_group_by_id(db, group_id)
+
+    if group is None:
+        raise HTTPException(status_code=404, detail="Sync group not found")
+
+    if not can_manually_retry_group(group):
+        raise HTTPException(
+            status_code=400,
+            detail="Successful sync groups cannot be retried manually",
+        )
 
     result = await dispatch_sync_group(group, PROCESSING_SERVER_URL)
     record_sync_group_dispatch_result(db, group_id, result)

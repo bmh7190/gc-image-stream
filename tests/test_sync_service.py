@@ -10,9 +10,11 @@ from app.services.frame_service import create_frame
 from app.services.sync_service import (
     build_dispatch_payload,
     build_sync_groups,
+    can_manually_retry_group,
     create_sync_group,
     dispatch_sync_group,
     get_groups_ready_for_retry,
+    get_sync_groups,
     get_retry_delay_ms,
     is_retryable_dispatch_result,
     record_sync_group_dispatch_result,
@@ -311,3 +313,42 @@ def test_is_retryable_dispatch_result_matches_retry_policy():
     assert not is_retryable_dispatch_result(
         {"success": True, "status_code": 200}
     )
+
+
+def test_get_sync_groups_supports_retry_ready_and_exhausted_filters():
+    db = build_test_session()
+    try:
+        ready = SyncGroup(
+            group_timestamp=1000,
+            dispatch_status="failed",
+            retry_count=1,
+            next_retry_at=1_000,
+        )
+        exhausted = SyncGroup(
+            group_timestamp=2000,
+            dispatch_status="failed",
+            retry_count=3,
+            next_retry_at=None,
+        )
+        success = SyncGroup(
+            group_timestamp=3000,
+            dispatch_status="success",
+            retry_count=0,
+            next_retry_at=None,
+        )
+        db.add_all([ready, exhausted, success])
+        db.commit()
+
+        retry_ready_groups = get_sync_groups(db, retry_ready=True, now_ms=2_000)
+        exhausted_groups = get_sync_groups(db, exhausted=True, now_ms=2_000)
+
+        assert [group["id"] for group in retry_ready_groups] == [ready.id]
+        assert [group["id"] for group in exhausted_groups] == [exhausted.id]
+    finally:
+        db.close()
+
+
+def test_can_manually_retry_group_blocks_success_groups():
+    assert can_manually_retry_group({"dispatch_status": "failed"})
+    assert can_manually_retry_group({"dispatch_status": "pending"})
+    assert not can_manually_retry_group({"dispatch_status": "success"})

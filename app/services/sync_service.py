@@ -53,10 +53,64 @@ def serialize_sync_group(group: SyncGroup):
     }
 
 
-def get_sync_groups(db: Session, limit: int = 20):
-    groups = (
+def build_sync_group_query(db: Session):
+    return (
         db.query(SyncGroup)
         .options(joinedload(SyncGroup.frames).joinedload(SyncFrame.frame))
+    )
+
+
+def get_sync_groups(
+    db: Session,
+    limit: int = 20,
+    dispatch_status: str | None = None,
+    retry_ready: bool | None = None,
+    exhausted: bool | None = None,
+    now_ms: int | None = None,
+):
+    if now_ms is None:
+        now_ms = int(time.time() * 1000)
+
+    query = build_sync_group_query(db)
+
+    if dispatch_status is not None:
+        query = query.filter(SyncGroup.dispatch_status == dispatch_status)
+
+    if retry_ready is True:
+        query = (
+            query
+            .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_FAILED)
+            .filter(SyncGroup.next_retry_at.is_not(None))
+            .filter(SyncGroup.next_retry_at <= now_ms)
+        )
+    elif retry_ready is False:
+        query = (
+            query
+            .filter(
+                (SyncGroup.next_retry_at.is_(None)) |
+                (SyncGroup.next_retry_at > now_ms)
+            )
+        )
+
+    if exhausted is True:
+        query = (
+            query
+            .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_FAILED)
+            .filter(SyncGroup.retry_count >= MAX_DISPATCH_RETRIES)
+            .filter(SyncGroup.next_retry_at.is_(None))
+        )
+    elif exhausted is False:
+        query = (
+            query
+            .filter(
+                (SyncGroup.retry_count < MAX_DISPATCH_RETRIES) |
+                (SyncGroup.next_retry_at.is_not(None)) |
+                (SyncGroup.dispatch_status != DISPATCH_STATUS_FAILED)
+            )
+        )
+
+    groups = (
+        query
         .order_by(SyncGroup.group_timestamp.desc())
         .limit(limit)
         .all()
@@ -158,8 +212,7 @@ def get_groups_ready_for_retry(
         now_ms = int(time.time() * 1000)
 
     groups = (
-        db.query(SyncGroup)
-        .options(joinedload(SyncGroup.frames).joinedload(SyncFrame.frame))
+        build_sync_group_query(db)
         .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_FAILED)
         .filter(SyncGroup.next_retry_at.is_not(None))
         .filter(SyncGroup.next_retry_at <= now_ms)
@@ -189,6 +242,10 @@ def is_retryable_dispatch_result(result: dict):
 def get_retry_delay_ms(retry_count: int):
     index = min(max(retry_count - 1, 0), len(RETRY_DELAYS_MS) - 1)
     return RETRY_DELAYS_MS[index]
+
+
+def can_manually_retry_group(group: dict):
+    return group["dispatch_status"] != DISPATCH_STATUS_SUCCESS
 
 
 def record_sync_group_dispatch_result(db: Session, group_id: int, result: dict):
