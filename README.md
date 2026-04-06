@@ -35,6 +35,9 @@ Out of scope:
 - SQLite-based metadata management
 - timestamp-based sync grouping
 - manual and automatic dispatch
+- dispatch state tracking per sync group
+- retry scheduling for retryable dispatch failures
+- operational retry controls for failed sync groups
 - automated tests for core collection/grouping/dispatch logic
 
 ## Repository Structure
@@ -110,6 +113,46 @@ REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 - `GET /sync/groups`
 - `GET /sync/groups/{group_id}`
 - `POST /sync/groups/{group_id}/dispatch`
+- `POST /sync/groups/{group_id}/retry`
+
+`GET /sync/groups` supports operational filters:
+
+- `status=pending|success|failed`
+- `retry_ready=true|false`
+- `exhausted=true|false`
+
+Each sync group response includes dispatch state metadata such as:
+
+- `dispatch_status`
+- `last_dispatch_at`
+- `last_dispatch_status_code`
+- `last_dispatch_error`
+- `dispatched_at`
+- `retry_count`
+- `next_retry_at`
+
+## Dispatch Retry Policy
+
+Retry is scheduled only for failures that may succeed on a later attempt.
+
+Retryable cases:
+
+- connection failures
+- request timeouts
+- HTTP `502`, `503`, `504`
+
+Non-retryable cases:
+
+- client-side request errors such as `400`
+- payload or endpoint problems that will fail again without code/data changes
+
+Current retry schedule:
+
+- 1st retry after 5 seconds
+- 2nd retry after 15 seconds
+- 3rd retry after 30 seconds
+
+Automatic retry is handled by the server loop, and failed groups can also be retried manually through the retry endpoint.
 
 ## Reliability Goals
 
@@ -117,6 +160,7 @@ REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 - minimize file/DB inconsistency
 - keep sync grouping deterministic
 - never treat dispatch failure as success
+- persist dispatch outcome and retry state for later inspection
 
 ## Documentation
 
