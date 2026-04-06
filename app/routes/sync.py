@@ -3,13 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.config.server import PROCESSING_SERVER_URL
 from app.db import get_db
-from app.schemas import SyncGroupResponse
+from app.schemas import SyncGroupResponse, SyncSummaryResponse
 from app.services.sync_service import (
     build_sync_groups,
     can_manually_retry_group,
     dispatch_sync_group,
     get_sync_group_by_id,
     get_sync_groups,
+    get_sync_summary,
     record_sync_group_dispatch_result,
 )
 
@@ -42,6 +43,13 @@ def list_groups(
         retry_ready=retry_ready,
         exhausted=exhausted,
     )
+
+
+@router.get("/summary", response_model=SyncSummaryResponse)
+def get_summary(
+    db: Session = Depends(get_db),
+):
+    return get_sync_summary(db)
 
 
 @router.get("/groups/{group_id}", response_model=SyncGroupResponse)

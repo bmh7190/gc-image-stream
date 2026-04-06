@@ -1,6 +1,7 @@
 import time
 
 import httpx
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import Frame, SyncGroup, SyncFrame
@@ -113,6 +114,38 @@ def get_sync_groups(
     )
 
     return [serialize_sync_group(group) for group in groups]
+
+
+def get_sync_summary(db: Session, now_ms: int | None = None):
+    if now_ms is None:
+        now_ms = int(time.time() * 1000)
+
+    status_counts = {
+        status: count
+        for status, count in (
+            db.query(SyncGroup.dispatch_status, func.count(SyncGroup.id))
+            .group_by(SyncGroup.dispatch_status)
+            .all()
+        )
+    }
+
+    retry_ready = (
+        db.query(func.count(SyncGroup.id))
+        .filter(SyncGroup.dispatch_status == DISPATCH_STATUS_RETRY_SCHEDULED)
+        .filter(SyncGroup.next_retry_at.is_not(None))
+        .filter(SyncGroup.next_retry_at <= now_ms)
+        .scalar()
+    ) or 0
+
+    return {
+        "total_groups": sum(status_counts.values()),
+        "pending": status_counts.get(DISPATCH_STATUS_PENDING, 0),
+        "retry_scheduled": status_counts.get(DISPATCH_STATUS_RETRY_SCHEDULED, 0),
+        "success": status_counts.get(DISPATCH_STATUS_SUCCESS, 0),
+        "failed": status_counts.get(DISPATCH_STATUS_FAILED, 0),
+        "exhausted": status_counts.get(DISPATCH_STATUS_EXHAUSTED, 0),
+        "retry_ready": retry_ready,
+    }
 
 def get_sync_group_by_id(db: Session, group_id: int):
     group = (

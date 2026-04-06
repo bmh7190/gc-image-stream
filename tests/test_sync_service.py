@@ -15,6 +15,7 @@ from app.services.sync_service import (
     dispatch_sync_group,
     get_groups_ready_for_retry,
     get_sync_groups,
+    get_sync_summary,
     get_retry_delay_ms,
     is_retryable_dispatch_result,
     record_sync_group_dispatch_result,
@@ -376,5 +377,43 @@ def test_record_sync_group_dispatch_result_marks_retryable_failures_as_exhausted
         assert exhausted_group.dispatch_status == "exhausted"
         assert exhausted_group.retry_count == 3
         assert exhausted_group.next_retry_at is None
+    finally:
+        db.close()
+
+
+def test_get_sync_summary_returns_counts_by_status_and_retry_ready():
+    db = build_test_session()
+    try:
+        db.add_all([
+            SyncGroup(group_timestamp=1000, dispatch_status="pending"),
+            SyncGroup(group_timestamp=2000, dispatch_status="success"),
+            SyncGroup(
+                group_timestamp=3000,
+                dispatch_status="retry_scheduled",
+                retry_count=1,
+                next_retry_at=1_000,
+            ),
+            SyncGroup(
+                group_timestamp=4000,
+                dispatch_status="retry_scheduled",
+                retry_count=1,
+                next_retry_at=10_000,
+            ),
+            SyncGroup(group_timestamp=5000, dispatch_status="failed"),
+            SyncGroup(group_timestamp=6000, dispatch_status="exhausted"),
+        ])
+        db.commit()
+
+        summary = get_sync_summary(db, now_ms=5_000)
+
+        assert summary == {
+            "total_groups": 6,
+            "pending": 1,
+            "retry_scheduled": 2,
+            "success": 1,
+            "failed": 1,
+            "exhausted": 1,
+            "retry_ready": 1,
+        }
     finally:
         db.close()

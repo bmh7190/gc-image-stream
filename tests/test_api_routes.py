@@ -302,3 +302,72 @@ def test_manual_retry_endpoint_rejects_success_group(client, monkeypatch):
 
     assert retry_response.status_code == 400
     assert retry_response.json()["detail"] == "Successful sync groups cannot be retried manually"
+
+
+def test_sync_summary_endpoint_returns_operational_counts(client, monkeypatch):
+    for device_id, timestamp in [
+        ("camera1", 1000),
+        ("camera2", 1010),
+        ("camera3", 2000),
+        ("camera4", 2010),
+        ("camera5", 3000),
+        ("camera6", 3010),
+    ]:
+        response = client.post(
+            "/frames/register",
+            data={
+                "device_id": device_id,
+                "timestamp": timestamp,
+                "file_path": f"storage/{device_id}/{timestamp}.jpg",
+            },
+        )
+        assert response.status_code == 200
+
+    build_response = client.post("/sync/build", params={"threshold_ms": 20})
+    assert build_response.status_code == 200
+
+    group_ids = sorted(group["id"] for group in client.get("/sync/groups").json())
+    retry_group_id, success_group_id, exhausted_group_id = group_ids
+
+    async def fake_timeout_dispatch(group, processing_server_url):
+        return {
+            "success": False,
+            "error": "Processing server timeout",
+            "payload": {"syncGroupId": group["id"]},
+        }
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_timeout_dispatch)
+    monkeypatch.setattr(sync_service.time, "time", lambda: 100.0)
+    retry_response = client.post(f"/sync/groups/{retry_group_id}/dispatch")
+    assert retry_response.status_code == 200
+
+    async def fake_success_dispatch(group, processing_server_url):
+        return {
+            "success": True,
+            "status_code": 200,
+            "response_body": {"message": "ok"},
+            "payload": {"syncGroupId": group["id"]},
+        }
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_success_dispatch)
+    success_response = client.post(f"/sync/groups/{success_group_id}/dispatch")
+    assert success_response.status_code == 200
+
+    monkeypatch.setattr(sync_routes, "dispatch_sync_group", fake_timeout_dispatch)
+    for _ in range(3):
+        response = client.post(f"/sync/groups/{exhausted_group_id}/dispatch")
+        assert response.status_code == 200
+
+    monkeypatch.setattr(sync_service.time, "time", lambda: 106.0)
+    summary_response = client.get("/sync/summary")
+
+    assert summary_response.status_code == 200
+    assert summary_response.json() == {
+        "total_groups": 3,
+        "pending": 0,
+        "retry_scheduled": 1,
+        "success": 1,
+        "failed": 0,
+        "exhausted": 1,
+        "retry_ready": 1,
+    }

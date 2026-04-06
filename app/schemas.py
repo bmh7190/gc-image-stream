@@ -32,3 +32,13 @@ class SyncGroupResponse(BaseModel):
     retry_count: int
     next_retry_at: int | None = None
     frames: list[SyncFrameDetail]
+
+
+class SyncSummaryResponse(BaseModel):
+    total_groups: int
+    pending: int
+    retry_scheduled: int
+    success: int
+    failed: int
+    exhausted: int
+    retry_ready: int
