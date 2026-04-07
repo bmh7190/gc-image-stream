@@ -28,12 +28,14 @@ class CollectorConfig:
     register_timeout_sec: float
 
 
+# 환경 파일을 읽어서 수집기 설정을 준비한다.
 def load_env_file(env_file: str | None = None):
     target = env_file or ".env"
     load_dotenv(target)
     print(f"[ENV] loaded: {target}")
 
 
+# 공통 환경변수로부터 수집기 설정 객체를 만든다.
 def build_collector_config(
     source_env_name: str,
     timeout_env_name: str,
@@ -71,10 +73,12 @@ def build_collector_config(
     )
 
 
+# 저장 경로가 없으면 생성한다.
 def ensure_dir(path: str):
     os.makedirs(path, exist_ok=True)
 
 
+# 카메라명과 timestamp 기준으로 저장 경로를 만든다.
 def build_save_path(camera_name: str, timestamp_ms: int, base_dir: str) -> str:
     dt = datetime.fromtimestamp(timestamp_ms / 1000)
 
@@ -91,6 +95,7 @@ def build_save_path(camera_name: str, timestamp_ms: int, base_dir: str) -> str:
     return os.path.join(folder, filename)
 
 
+# 목표 주기를 기준으로 다음 캡처 시각을 계산한다.
 def calculate_next_capture_at(
     scheduled_at: float,
     interval_sec: float,
@@ -104,11 +109,13 @@ def calculate_next_capture_at(
     return next_capture_at + (missed_intervals * interval_sec)
 
 
+# 이미지 바이트를 파일로 저장한다.
 def save_image(save_path: str, image_bytes: bytes):
     with open(save_path, "wb") as file_obj:
         file_obj.write(image_bytes)
 
 
+# 프레임 메타데이터를 서버에 등록한다.
 def register_to_server(
     session: httpx.Client,
     register_api_url: str,
@@ -126,6 +133,7 @@ def register_to_server(
     return session.post(register_api_url, data=data, timeout=timeout_sec)
 
 
+# 백그라운드에서 등록 큐를 소비하며 서버 등록을 처리한다.
 def register_worker(
     stop_event: Event,
     register_queue: Queue[dict],
@@ -181,6 +189,7 @@ def register_worker(
         session.close()
 
 
+# 등록 worker 실행에 필요한 큐와 스레드를 시작한다.
 def start_register_worker(config: CollectorConfig):
     register_queue: Queue[dict] = Queue()
     stop_event = Event()
@@ -193,12 +202,14 @@ def start_register_worker(config: CollectorConfig):
     return register_queue, stop_event, worker
 
 
+# 등록 worker를 안전하게 종료한다.
 def stop_register_runtime(stop_event: Event, register_queue: Queue[dict], worker: Thread):
     stop_event.set()
     register_queue.join()
     worker.join(timeout=2.0)
 
 
+# 저장된 프레임을 등록 큐에 넣는다.
 def enqueue_registration(
     register_queue: Queue[dict],
     camera_name: str,
@@ -214,6 +225,7 @@ def enqueue_registration(
     )
 
 
+# 캡처 성능 로그를 한 줄로 남긴다.
 def log_capture(
     timestamp_ms: int,
     capture_label: str,
@@ -232,6 +244,7 @@ def log_capture(
     )
 
 
+# 주기 지연 여부를 기록하고 다음 캡처 시각을 반환한다.
 def log_schedule_lag(
     scheduled_at: float,
     interval_sec: float,
@@ -262,4 +275,3 @@ def log_schedule_lag(
             )
 
     return adjusted_next_capture_at
-

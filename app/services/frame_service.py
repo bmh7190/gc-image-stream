@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models import Frame
 
 
+# 프레임을 저장하고, 중복이면 기존 레코드를 반환한다.
 def create_frame(db: Session, device_id: str, timestamp: int, file_path: str) -> Frame:
     frame = Frame(
         device_id=device_id,
@@ -27,9 +28,11 @@ def create_frame(db: Session, device_id: str, timestamp: int, file_path: str) ->
         raise
 
 
+# 최신 순으로 프레임 목록을 조회한다.
 def get_frames(db: Session, limit: int = 50):
     return db.query(Frame).order_by(Frame.timestamp.desc()).limit(limit).all()
 
 
+# 최근 프레임 조회용 자리 함수다.
 def get_recent_frames(db: Session, window_ms: int = 100):
     return db.query(Frame).order_by(Frame.timestamp.asc()).all()

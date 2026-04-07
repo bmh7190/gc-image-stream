@@ -39,6 +39,7 @@ AUTO_SYNC_THRESHOLD_MS = 200
 AUTO_SYNC_INTERVAL_SEC = 1.0
 
 
+# 주기적으로 sync group 생성과 자동 dispatch/retry를 수행한다.
 async def auto_sync_loop():
     while True:
         db = SessionLocal()
@@ -134,6 +135,7 @@ async def auto_sync_loop():
         await asyncio.sleep(AUTO_SYNC_INTERVAL_SEC)
 
 
+# 서버 시작 시 자동 sync 루프를 백그라운드로 띄운다.
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(auto_sync_loop())
@@ -147,6 +149,7 @@ async def startup_event():
     )
 
 
+# 간단한 서버 상태 확인 응답을 반환한다.
 @app.get(
     "/",
     summary="서비스 상태 확인",

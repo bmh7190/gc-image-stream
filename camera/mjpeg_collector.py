@@ -21,6 +21,7 @@ JPEG_SOI = b"\xff\xd8"
 JPEG_EOI = b"\xff\xd9"
 
 
+# MJPEG collector용 설정을 만든다.
 def build_config():
     return build_collector_config(
         source_env_name="CAMERA_STREAM_URL",
@@ -29,6 +30,7 @@ def build_config():
     )
 
 
+# 바이트 버퍼에서 완성된 JPEG 프레임만 잘라낸다.
 def extract_mjpeg_frames(buffer: bytearray) -> list[bytes]:
     frames: list[bytes] = []
 
@@ -51,6 +53,7 @@ def extract_mjpeg_frames(buffer: bytearray) -> list[bytes]:
     return frames
 
 
+# MJPEG 스트림을 읽으면서 JPEG 프레임을 순서대로 꺼낸다.
 def iter_mjpeg_frames(
     session: httpx.Client,
     url: str,
@@ -70,6 +73,7 @@ def iter_mjpeg_frames(
                 yield frame
 
 
+# MJPEG 스트림에서 프레임을 샘플링하며 수집 루프를 실행한다.
 def main():
     env_file = sys.argv[1] if len(sys.argv) > 1 else None
     load_env_file(env_file)

@@ -17,6 +17,7 @@ from camera.core import (
 )
 
 
+# snapshot collector용 설정을 만든다.
 def build_config():
     return build_collector_config(
         source_env_name="CAMERA_SNAPSHOT_URL",
@@ -25,6 +26,7 @@ def build_config():
     )
 
 
+# snapshot URL에서 이미지 한 장을 내려받는다.
 def download_image(
     session: httpx.Client,
     url: str,
@@ -35,6 +37,7 @@ def download_image(
     return response.content
 
 
+# snapshot 기반 수집 루프를 실행한다.
 def main():
     env_file = sys.argv[1] if len(sys.argv) > 1 else None
     load_env_file(env_file)
@@ -108,4 +111,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

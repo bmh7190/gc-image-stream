@@ -30,6 +30,7 @@ SYNC_GROUP_SORT_FIELDS = {
     "retry_count": SyncGroup.retry_count,
 }
 
+# 지정한 frame ID들로 sync group 하나를 생성한다.
 def create_sync_group(db: Session, group_timestamp: int, frame_ids: list[int]) -> SyncGroup:
     group = SyncGroup(
         group_timestamp=group_timestamp,
@@ -47,6 +48,7 @@ def create_sync_group(db: Session, group_timestamp: int, frame_ids: list[int]) -
     return group
 
 
+# ORM sync group을 API 응답용 dict로 직렬화한다.
 def serialize_sync_group(group: SyncGroup):
     return {
         "id": group.id,
@@ -70,6 +72,7 @@ def serialize_sync_group(group: SyncGroup):
     }
 
 
+# sync group 기본 조회 쿼리를 구성한다.
 def build_sync_group_query(db: Session):
     return (
         db.query(SyncGroup)
@@ -77,6 +80,7 @@ def build_sync_group_query(db: Session):
     )
 
 
+# 필터, 정렬, 페이지네이션 조건으로 sync group 목록을 조회한다.
 def get_sync_groups(
     db: Session,
     limit: int = 20,
@@ -155,6 +159,7 @@ def get_sync_groups(
     }
 
 
+# 현재 sync group 상태를 집계해서 운영 요약 정보를 만든다.
 def get_sync_summary(db: Session, now_ms: int | None = None):
     if now_ms is None:
         now_ms = int(time.time() * 1000)
@@ -186,6 +191,8 @@ def get_sync_summary(db: Session, now_ms: int | None = None):
         "retry_ready": retry_ready,
     }
 
+
+# ID로 sync group 하나를 조회한다.
 def get_sync_group_by_id(db: Session, group_id: int):
     group = (
         db.query(SyncGroup)
@@ -200,6 +207,7 @@ def get_sync_group_by_id(db: Session, group_id: int):
     return serialize_sync_group(group)
 
 
+# 아직 어떤 sync group에도 속하지 않은 프레임만 조회한다.
 def get_unsynced_frames(db: Session):
     return (
         db.query(Frame)
@@ -210,6 +218,7 @@ def get_unsynced_frames(db: Session):
     )
 
 
+# threshold 안의 프레임들을 묶어 새로운 sync group을 만든다.
 def build_sync_groups(db: Session, threshold_ms: int = 50):
     all_frames = get_unsynced_frames(db)
 
@@ -271,6 +280,7 @@ def build_sync_groups(db: Session, threshold_ms: int = 50):
     return created_groups
 
 
+# 지금 시점에 재시도 가능한 sync group 목록을 조회한다.
 def get_groups_ready_for_retry(
     db: Session,
     now_ms: int | None = None,
@@ -292,6 +302,7 @@ def get_groups_ready_for_retry(
     return [serialize_sync_group(group) for group in groups]
 
 
+# dispatch 실패가 자동 재시도 대상인지 판단한다.
 def is_retryable_dispatch_result(result: dict):
     if result.get("success"):
         return False
@@ -307,15 +318,18 @@ def is_retryable_dispatch_result(result: dict):
     }
 
 
+# 재시도 횟수에 맞는 다음 지연 시간을 계산한다.
 def get_retry_delay_ms(retry_count: int):
     index = min(max(retry_count - 1, 0), len(RETRY_DELAYS_MS) - 1)
     return RETRY_DELAYS_MS[index]
 
 
+# 수동 재시도가 허용되는 상태인지 판단한다.
 def can_manually_retry_group(group: dict):
     return group["dispatch_status"] != DISPATCH_STATUS_SUCCESS
 
 
+# dispatch 결과를 sync group 상태와 재시도 정보에 반영한다.
 def record_sync_group_dispatch_result(
     db: Session,
     group_id: int,
@@ -372,6 +386,8 @@ def record_sync_group_dispatch_result(
 
     return group
 
+
+# 처리 서버로 보낼 payload 형태를 만든다.
 def build_dispatch_payload(group: dict):
     return {
         "syncGroupId": group["id"],
@@ -388,6 +404,7 @@ def build_dispatch_payload(group: dict):
     }
 
 
+# HTTP 응답 본문을 JSON 또는 문자열로 정리한다.
 def parse_response_body(response: httpx.Response):
     if not response.content:
         return None
@@ -398,6 +415,7 @@ def parse_response_body(response: httpx.Response):
         return response.text
 
 
+# sync group을 처리 서버로 전송하고 결과를 표준 dict로 반환한다.
 async def dispatch_sync_group(group: dict, processing_server_url: str):
     payload = build_dispatch_payload(group)
 

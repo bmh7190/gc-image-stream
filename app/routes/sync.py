@@ -19,6 +19,7 @@ from app.services.sync_service import (
 router = APIRouter(prefix="/sync", tags=["sync"])
 
 
+# 아직 묶이지 않은 프레임으로 새 sync group을 만든다.
 @router.post(
     "/build",
     summary="Sync 그룹 생성",
@@ -43,6 +44,7 @@ def build_groups(
     }
 
 
+# 필터, 정렬, 페이지네이션 조건으로 sync group 목록을 조회한다.
 @router.get(
     "/groups",
     response_model=SyncGroupListResponse,
@@ -93,6 +95,7 @@ def list_groups(
     )
 
 
+# dispatch 상태 기준 운영 요약 정보를 반환한다.
 @router.get(
     "/summary",
     response_model=SyncSummaryResponse,
@@ -109,6 +112,7 @@ def get_summary(
     return get_sync_summary(db)
 
 
+# 특정 sync group의 상세 정보를 조회한다.
 @router.get(
     "/groups/{group_id}",
     response_model=SyncGroupResponse,
@@ -132,6 +136,7 @@ def get_group(
     return group
 
 
+# 선택한 sync group을 즉시 처리 서버로 전송한다.
 @router.post(
     "/groups/{group_id}/dispatch",
     summary="Sync 그룹 전송",
@@ -156,6 +161,7 @@ async def dispatch_group(
     return result
 
 
+# 성공하지 않은 sync group에 대해 수동 재시도를 수행한다.
 @router.post(
     "/groups/{group_id}/retry",
     summary="Sync 그룹 수동 재시도",

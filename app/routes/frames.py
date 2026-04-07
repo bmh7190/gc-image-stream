@@ -12,6 +12,7 @@ from app.utils.file_utils import build_frame_path, parse_filename
 router = APIRouter(prefix="/frames", tags=["frames"])
 
 
+# 업로드 실패 시 남은 파일을 정리한다.
 def remove_file_if_exists(path: str):
     try:
         if os.path.exists(path):
@@ -20,6 +21,7 @@ def remove_file_if_exists(path: str):
         pass
 
 
+# 업로드된 이미지 파일을 저장하고 프레임 메타데이터를 등록한다.
 @router.post(
     "/upload",
     response_model=FrameResponse,
@@ -80,6 +82,7 @@ async def upload_frame(
     return frame
 
 
+# 파일 업로드 없이 프레임 메타데이터만 등록한다.
 @router.post(
     "/register",
     response_model=FrameResponse,
@@ -109,6 +112,7 @@ def register_frame(
     return frame
 
 
+# 최근 저장된 프레임 목록을 조회한다.
 @router.get(
     "",
     response_model=list[FrameResponse],

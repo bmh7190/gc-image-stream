@@ -8,6 +8,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(ROOT_DIR / ".env")
 
 
+# 필수 문자열 환경변수를 읽고 비어 있으면 예외를 발생시킨다.
 def get_required_env(name: str) -> str:
     value = os.getenv(name)
     if value is None or not value.strip():
@@ -15,6 +16,7 @@ def get_required_env(name: str) -> str:
     return value
 
 
+# 필수 환경변수를 float로 변환해서 반환한다.
 def get_float_env(name: str) -> float:
     raw_value = get_required_env(name)
     try:

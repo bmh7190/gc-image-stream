@@ -4,6 +4,7 @@ import logging
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
 
+# 애플리케이션 기본 로깅 설정을 한 번만 적용한다.
 def configure_logging():
     root_logger = logging.getLogger()
 
@@ -16,6 +17,7 @@ def configure_logging():
     )
 
 
+# 구조화 로그용 key=value 문자열을 만든다.
 def format_log_event(event: str, **fields) -> str:
     parts = [f"event={event}"]
 

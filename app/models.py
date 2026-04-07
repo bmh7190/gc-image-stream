@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from app.db import Base
 
 
+# 수집된 프레임 메타데이터를 저장하는 테이블이다.
 class Frame(Base):
     __tablename__ = "frames"
     __table_args__ = (
@@ -15,6 +16,7 @@ class Frame(Base):
     file_path = Column(String, nullable=False)
 
 
+# 시간 기준으로 묶인 sync group과 dispatch 상태를 저장한다.
 class SyncGroup(Base):
     __tablename__ = "sync_groups"
 
@@ -35,6 +37,7 @@ class SyncGroup(Base):
     )
 
 
+# sync group과 frame 사이의 연결 관계를 저장한다.
 class SyncFrame(Base):
     __tablename__ = "sync_frames"
 
