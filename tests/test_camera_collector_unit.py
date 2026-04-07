@@ -15,11 +15,11 @@ def test_build_config_reads_required_values(monkeypatch):
     config = camera_collector.build_config()
 
     assert config.camera_name == "camera1"
-    assert config.camera_snapshot_url == "http://camera.local/shot.jpg"
+    assert config.source_url == "http://camera.local/shot.jpg"
     assert config.collect_interval_sec == 0.1
     assert config.storage_dir == "captures"
     assert config.register_api_url == "http://server.local/frames/register"
-    assert config.snapshot_timeout_sec == 5.0
+    assert config.capture_timeout_sec == 5.0
     assert config.register_timeout_sec == 5.0
 
 
