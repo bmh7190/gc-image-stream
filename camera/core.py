@@ -262,3 +262,4 @@ def log_schedule_lag(
             )
 
     return adjusted_next_capture_at
+

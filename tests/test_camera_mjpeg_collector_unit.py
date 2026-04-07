@@ -1,4 +1,4 @@
-import camera_mjpeg_collector
+from camera import mjpeg_collector
 
 
 def test_build_config_reads_stream_env(monkeypatch):
@@ -6,7 +6,7 @@ def test_build_config_reads_stream_env(monkeypatch):
     monkeypatch.setenv("CAMERA_STREAM_URL", "http://camera.local/video")
     monkeypatch.setenv("COLLECT_INTERVAL_SEC", "0.1")
 
-    config = camera_mjpeg_collector.build_config()
+    config = mjpeg_collector.build_config()
 
     assert config.camera_name == "camera1"
     assert config.source_url == "http://camera.local/video"
@@ -24,7 +24,7 @@ def test_extract_mjpeg_frames_returns_complete_jpegs():
         b"\xff\xd8frame2\xff\xd9"
     )
 
-    frames = camera_mjpeg_collector.extract_mjpeg_frames(buffer)
+    frames = mjpeg_collector.extract_mjpeg_frames(buffer)
 
     assert frames == [b"\xff\xd8frame1\xff\xd9", b"\xff\xd8frame2\xff\xd9"]
     assert buffer == bytearray()
@@ -37,7 +37,7 @@ def test_extract_mjpeg_frames_keeps_incomplete_tail():
         b"\xff\xd8partial"
     )
 
-    frames = camera_mjpeg_collector.extract_mjpeg_frames(buffer)
+    frames = mjpeg_collector.extract_mjpeg_frames(buffer)
 
     assert frames == [b"\xff\xd8complete\xff\xd9"]
     assert buffer == bytearray(b"\xff\xd8partial")

@@ -3,11 +3,10 @@ import time
 
 import httpx
 
-from collector_core import (
+from camera.core import (
     DEFAULT_SNAPSHOT_TIMEOUT_SEC,
     build_collector_config,
     build_save_path,
-    calculate_next_capture_at,
     enqueue_registration,
     load_env_file,
     log_capture,
@@ -109,3 +108,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

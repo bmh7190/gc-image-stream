@@ -3,7 +3,7 @@ import time
 
 import httpx
 
-from collector_core import (
+from camera.core import (
     DEFAULT_STREAM_TIMEOUT_SEC,
     build_collector_config,
     build_save_path,

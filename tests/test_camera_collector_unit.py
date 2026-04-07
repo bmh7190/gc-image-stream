@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-import camera_collector
+from camera import core
+from camera import snapshot_collector
 
 
 def test_build_config_reads_required_values(monkeypatch):
@@ -12,7 +13,7 @@ def test_build_config_reads_required_values(monkeypatch):
     monkeypatch.setenv("STORAGE_DIR", "captures")
     monkeypatch.setenv("REGISTER_API_URL", "http://server.local/frames/register")
 
-    config = camera_collector.build_config()
+    config = snapshot_collector.build_config()
 
     assert config.camera_name == "camera1"
     assert config.source_url == "http://camera.local/shot.jpg"
@@ -28,11 +29,11 @@ def test_build_config_rejects_missing_snapshot_env(monkeypatch):
     monkeypatch.delenv("CAMERA_SNAPSHOT_URL", raising=False)
 
     with pytest.raises(ValueError, match="CAMERA_NAME, CAMERA_SNAPSHOT_URL"):
-        camera_collector.build_config()
+        snapshot_collector.build_config()
 
 
 def test_build_save_path_uses_camera_date_layout(tmp_path):
-    path = camera_collector.build_save_path(
+    path = core.build_save_path(
         camera_name="camera2",
         timestamp_ms=1712321562400,
         base_dir=str(tmp_path),
@@ -45,7 +46,7 @@ def test_build_save_path_uses_camera_date_layout(tmp_path):
 
 
 def test_calculate_next_capture_at_skips_missed_intervals():
-    next_capture_at = camera_collector.calculate_next_capture_at(
+    next_capture_at = core.calculate_next_capture_at(
         scheduled_at=10.0,
         interval_sec=0.1,
         now=10.35,
