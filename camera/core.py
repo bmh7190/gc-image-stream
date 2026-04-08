@@ -26,6 +26,8 @@ class CollectorConfig:
     register_api_url: str
     capture_timeout_sec: float
     register_timeout_sec: float
+    grpc_relay_target: str | None
+    grpc_relay_timeout_sec: float | None
 
 
 # 환경 파일을 읽어서 수집기 설정을 준비한다.
@@ -58,6 +60,13 @@ def build_collector_config(
     if collect_interval_sec <= 0:
         raise ValueError("COLLECT_INTERVAL_SEC must be greater than 0")
 
+    relay_timeout_raw = os.getenv("GRPC_RELAY_TIMEOUT_SEC")
+    relay_timeout_sec = None
+    if relay_timeout_raw and relay_timeout_raw.strip():
+        parsed_relay_timeout = float(relay_timeout_raw)
+        if parsed_relay_timeout > 0:
+            relay_timeout_sec = parsed_relay_timeout
+
     return CollectorConfig(
         camera_name=camera_name,
         source_url=source_url,
@@ -70,6 +79,8 @@ def build_collector_config(
         register_timeout_sec=float(
             os.getenv("REGISTER_TIMEOUT_SEC", str(DEFAULT_REGISTER_TIMEOUT_SEC))
         ),
+        grpc_relay_target=os.getenv("GRPC_RELAY_TARGET"),
+        grpc_relay_timeout_sec=relay_timeout_sec,
     )
 
 
@@ -202,10 +213,97 @@ def start_register_worker(config: CollectorConfig):
     return register_queue, stop_event, worker
 
 
+# gRPC relay worker가 큐에서 프레임을 꺼내 processing server로 stream 전송한다.
+def relay_worker(
+    stop_event: Event,
+    relay_queue: Queue[dict],
+    config: CollectorConfig,
+):
+    try:
+        import grpc
+    except ImportError as exc:
+        raise RuntimeError(
+            "grpcio is required when GRPC_RELAY_TARGET is set"
+        ) from exc
+
+    from camera.grpc_relay import RelayFrame, build_frame_relay_stub
+
+    def relay_frames():
+        while not stop_event.is_set() or not relay_queue.empty():
+            try:
+                item = relay_queue.get(timeout=0.5)
+            except Empty:
+                continue
+
+            try:
+                yield RelayFrame(
+                    device_id=item["device_id"],
+                    timestamp_ms=item["timestamp"],
+                    sequence=item["sequence"],
+                    content_type=item["content_type"],
+                    image_bytes=item["image_bytes"],
+                    file_path=item["file_path"],
+                )
+            finally:
+                relay_queue.task_done()
+
+    channel = grpc.insecure_channel(config.grpc_relay_target)
+    stub = build_frame_relay_stub(channel)
+
+    try:
+        ack = stub(
+            relay_frames(),
+            timeout=config.grpc_relay_timeout_sec,
+        )
+        print(
+            "[RELAY CLOSED] "
+            f"success={ack.success} "
+            f"received={ack.received_count} "
+            f"message={ack.message}"
+        )
+    except Exception as exc:
+        print(f"[RELAY ERROR] error={exc}")
+    finally:
+        channel.close()
+
+
+# relay target이 있으면 gRPC relay worker를 시작한다.
+def start_relay_worker(config: CollectorConfig):
+    if not config.grpc_relay_target:
+        return None, None, None
+
+    try:
+        import grpc  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError(
+            "grpcio is required when GRPC_RELAY_TARGET is set"
+        ) from exc
+
+    relay_queue: Queue[dict] = Queue()
+    stop_event = Event()
+    worker = Thread(
+        target=relay_worker,
+        args=(stop_event, relay_queue, config),
+        daemon=True,
+    )
+    worker.start()
+    return relay_queue, stop_event, worker
+
+
 # 등록 worker를 안전하게 종료한다.
 def stop_register_runtime(stop_event: Event, register_queue: Queue[dict], worker: Thread):
     stop_event.set()
     register_queue.join()
+    worker.join(timeout=2.0)
+
+
+# relay worker를 안전하게 종료한다.
+def stop_relay_runtime(stop_event: Event | None, relay_queue: Queue[dict] | None, worker: Thread | None):
+    if stop_event is None or relay_queue is None or worker is None:
+        return
+
+    stop_event.set()
+    relay_queue.join()
     worker.join(timeout=2.0)
 
 
@@ -220,6 +318,30 @@ def enqueue_registration(
         {
             "device_id": camera_name,
             "timestamp": timestamp_ms,
+            "file_path": save_path,
+        }
+    )
+
+
+# relay 대상 프레임을 큐에 넣는다.
+def enqueue_relay(
+    relay_queue: Queue[dict] | None,
+    camera_name: str,
+    timestamp_ms: int,
+    sequence: int,
+    image_bytes: bytes,
+    save_path: str,
+):
+    if relay_queue is None:
+        return
+
+    relay_queue.put(
+        {
+            "device_id": camera_name,
+            "timestamp": timestamp_ms,
+            "sequence": sequence,
+            "content_type": "image/jpeg",
+            "image_bytes": image_bytes,
             "file_path": save_path,
         }
     )

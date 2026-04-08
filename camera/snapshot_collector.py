@@ -7,12 +7,15 @@ from camera.core import (
     DEFAULT_SNAPSHOT_TIMEOUT_SEC,
     build_collector_config,
     build_save_path,
+    enqueue_relay,
     enqueue_registration,
     load_env_file,
     log_capture,
     log_schedule_lag,
     save_image,
+    start_relay_worker,
     start_register_worker,
+    stop_relay_runtime,
     stop_register_runtime,
 )
 
@@ -47,12 +50,16 @@ def main():
     print(f"[URL] {config.source_url}")
     print(f"[INTERVAL] target={config.collect_interval_sec:.3f}s")
     print(f"[REGISTER API] {config.register_api_url}")
+    if config.grpc_relay_target:
+        print(f"[GRPC RELAY] {config.grpc_relay_target}")
     print(f"[STORAGE DIR] {config.storage_dir}")
 
     register_queue, stop_event, worker = start_register_worker(config)
+    relay_queue, relay_stop_event, relay_worker = start_relay_worker(config)
     snapshot_session = httpx.Client()
     started_at = time.monotonic()
     next_capture_at = time.monotonic()
+    sequence = 0
 
     try:
         while True:
@@ -85,6 +92,15 @@ def main():
                     timestamp_ms,
                     save_path,
                 )
+                sequence += 1
+                enqueue_relay(
+                    relay_queue,
+                    config.camera_name,
+                    timestamp_ms,
+                    sequence,
+                    image_bytes,
+                    save_path,
+                )
                 log_capture(
                     timestamp_ms=timestamp_ms,
                     capture_label="download",
@@ -112,6 +128,7 @@ def main():
     finally:
         snapshot_session.close()
         stop_register_runtime(stop_event, register_queue, worker)
+        stop_relay_runtime(relay_stop_event, relay_queue, relay_worker)
 
 
 if __name__ == "__main__":

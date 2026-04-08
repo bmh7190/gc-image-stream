@@ -22,6 +22,31 @@ def test_build_config_reads_required_values(monkeypatch):
     assert config.register_api_url == "http://server.local/frames/register"
     assert config.capture_timeout_sec == 5.0
     assert config.register_timeout_sec == 5.0
+    assert config.grpc_relay_target is None
+    assert config.grpc_relay_timeout_sec is None
+
+
+def test_build_config_reads_optional_grpc_relay_env(monkeypatch):
+    monkeypatch.setenv("CAMERA_NAME", "camera1")
+    monkeypatch.setenv("CAMERA_SNAPSHOT_URL", "http://camera.local/shot.jpg")
+    monkeypatch.setenv("GRPC_RELAY_TARGET", "127.0.0.1:50051")
+    monkeypatch.setenv("GRPC_RELAY_TIMEOUT_SEC", "9.5")
+
+    config = snapshot_collector.build_config()
+
+    assert config.grpc_relay_target == "127.0.0.1:50051"
+    assert config.grpc_relay_timeout_sec == 9.5
+
+
+def test_enqueue_relay_is_noop_without_queue():
+    core.enqueue_relay(
+        relay_queue=None,
+        camera_name="camera1",
+        timestamp_ms=1234,
+        sequence=1,
+        image_bytes=b"frame",
+        save_path="storage/camera1/frame.jpg",
+    )
 
 
 def test_build_config_rejects_missing_snapshot_env(monkeypatch):
