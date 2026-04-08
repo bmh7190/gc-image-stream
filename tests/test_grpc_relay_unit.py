@@ -2,7 +2,7 @@ from concurrent import futures
 
 import pytest
 
-from camera.grpc_relay import (
+from processing.grpc_relay import (
     RelayAck,
     RelayFrame,
     add_frame_relay_servicer,

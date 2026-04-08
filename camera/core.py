@@ -226,7 +226,7 @@ def relay_worker(
             "grpcio is required when GRPC_RELAY_TARGET is set"
         ) from exc
 
-    from camera.grpc_relay import RelayFrame, build_frame_relay_stub
+    from processing.grpc_relay import RelayFrame, build_frame_relay_stub
 
     def relay_frames():
         while not stop_event.is_set() or not relay_queue.empty():
