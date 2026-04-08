@@ -27,6 +27,7 @@ htmlcov/
 fake_camera_generator.py
 test_camera.py
 processing/mock_http_server.py
+processing/mock_grpc_server.py
 
 AGENTS.md
 WORKLOG.md
