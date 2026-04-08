@@ -19,6 +19,14 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 
+FRAME_SCHEMA_UPDATES = {
+    "compressed_at": (
+        "ALTER TABLE frames "
+        "ADD COLUMN compressed_at BIGINT"
+    ),
+}
+
+
 SYNC_GROUP_SCHEMA_UPDATES = {
     "dispatch_status": (
         "ALTER TABLE sync_groups "
@@ -55,7 +63,25 @@ SYNC_GROUP_SCHEMA_UPDATES = {
 def ensure_database_schema():
     inspector = inspect(engine)
 
-    if "sync_groups" not in inspector.get_table_names():
+    table_names = set(inspector.get_table_names())
+
+    if "frames" in table_names:
+        existing_frame_columns = {
+            column["name"]
+            for column in inspector.get_columns("frames")
+        }
+        missing_frame_updates = [
+            sql
+            for column_name, sql in FRAME_SCHEMA_UPDATES.items()
+            if column_name not in existing_frame_columns
+        ]
+
+        if missing_frame_updates:
+            with engine.begin() as connection:
+                for sql in missing_frame_updates:
+                    connection.execute(text(sql))
+
+    if "sync_groups" not in table_names:
         return
 
     existing_columns = {

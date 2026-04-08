@@ -23,3 +23,25 @@ def get_float_env(name: str) -> float:
         return float(raw_value)
     except ValueError as exc:
         raise RuntimeError(f"Invalid float value for {name}: {raw_value}") from exc
+
+
+# 선택 환경변수가 있으면 float로 변환하고, 없으면 기본값을 사용한다.
+def get_optional_float_env(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid float value for {name}: {raw_value}") from exc
+
+
+# 선택 환경변수가 있으면 int로 변환하고, 없으면 기본값을 사용한다.
+def get_optional_int_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise RuntimeError(f"Invalid int value for {name}: {raw_value}") from exc

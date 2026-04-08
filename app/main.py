@@ -3,10 +3,17 @@ import logging
 from fastapi import FastAPI
 
 from app.db import Base, engine, SessionLocal, ensure_database_schema
-from app.config.server import PROCESSING_SERVER_URL
+from app.config.server import (
+    FRAME_COMPRESS_AFTER_SEC,
+    FRAME_COMPRESS_BATCH_SIZE,
+    FRAME_COMPRESS_JPEG_QUALITY,
+    FRAME_MAINTENANCE_INTERVAL_SEC,
+    PROCESSING_SERVER_URL,
+)
 from app.logging_config import configure_logging, format_log_event
 from app.routes.frames import router as frames_router
 from app.routes.sync import router as sync_router
+from app.services.frame_maintenance_service import compress_old_dispatched_frames
 from app.services.sync_service import (
     build_sync_groups,
     dispatch_sync_group,
@@ -37,6 +44,7 @@ app.include_router(sync_router)
 
 AUTO_SYNC_THRESHOLD_MS = 200
 AUTO_SYNC_INTERVAL_SEC = 1.0
+FRAME_COMPRESS_AFTER_MS = int(FRAME_COMPRESS_AFTER_SEC * 1000)
 
 
 # 주기적으로 sync group 생성과 자동 dispatch/retry를 수행한다.
@@ -135,16 +143,50 @@ async def auto_sync_loop():
         await asyncio.sleep(AUTO_SYNC_INTERVAL_SEC)
 
 
+# 주기적으로 성공 dispatch 이후 오래된 프레임을 재압축한다.
+async def frame_maintenance_loop():
+    while True:
+        db = SessionLocal()
+        try:
+            compress_old_dispatched_frames(
+                db,
+                compress_after_ms=FRAME_COMPRESS_AFTER_MS,
+                quality=FRAME_COMPRESS_JPEG_QUALITY,
+                limit=FRAME_COMPRESS_BATCH_SIZE,
+            )
+        except Exception as e:
+            logger.exception(
+                format_log_event(
+                    "frame_maintenance_loop_error",
+                    error=str(e),
+                )
+            )
+        finally:
+            db.close()
+
+        await asyncio.sleep(FRAME_MAINTENANCE_INTERVAL_SEC)
+
+
 # 서버 시작 시 자동 sync 루프를 백그라운드로 띄운다.
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(auto_sync_loop())
+    asyncio.create_task(frame_maintenance_loop())
     logger.info(
         format_log_event(
             "auto_sync_started",
             interval_sec=AUTO_SYNC_INTERVAL_SEC,
             threshold_ms=AUTO_SYNC_THRESHOLD_MS,
             dispatch_url=PROCESSING_SERVER_URL,
+        )
+    )
+    logger.info(
+        format_log_event(
+            "frame_maintenance_started",
+            interval_sec=FRAME_MAINTENANCE_INTERVAL_SEC,
+            compress_after_sec=FRAME_COMPRESS_AFTER_SEC,
+            quality=FRAME_COMPRESS_JPEG_QUALITY,
+            batch_size=FRAME_COMPRESS_BATCH_SIZE,
         )
     )
 
