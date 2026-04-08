@@ -48,7 +48,10 @@ app/
   routes/           API routes
   services/         frame/group/dispatch business logic
   utils/            file/path utilities
-camera_collector.py collector script for camera snapshots
+camera/
+  snapshot_collector.py snapshot collector
+  mjpeg_collector.py    MJPEG stream collector
+  core.py               shared collector logic
 fake_camera_generator.py test data generator for fake cameras
 tests/              automated tests
 docs/               project documents
@@ -203,6 +206,7 @@ Automatic retry is handled by the server loop, and failed groups can also be ret
 - [Project Overview](docs/project.md)
 - [Architecture](docs/architecture.md)
 - [Roadmap](docs/roadmap.md)
+- [Collector Experiments](docs/experiments.md)
 
 ## Key Files
 
@@ -211,5 +215,6 @@ Automatic retry is handled by the server loop, and failed groups can also be ret
 - [`app/routes/sync.py`](app/routes/sync.py)
 - [`app/services/frame_service.py`](app/services/frame_service.py)
 - [`app/services/sync_service.py`](app/services/sync_service.py)
-- [`camera_collector.py`](camera_collector.py)
+- [`camera/snapshot_collector.py`](camera/snapshot_collector.py)
+- [`camera/mjpeg_collector.py`](camera/mjpeg_collector.py)
 - [`fake_camera_generator.py`](fake_camera_generator.py)
