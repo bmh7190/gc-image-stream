@@ -54,7 +54,6 @@ camera/
   core.py               shared collector logic
 fake_camera_generator.py test data generator for fake cameras
 tests/              automated tests
-docs/               project documents
 ```
 
 ## Quick Start
@@ -200,13 +199,6 @@ Automatic retry is handled by the server loop, and failed groups can also be ret
 - keep sync grouping deterministic
 - never treat dispatch failure as success
 - persist dispatch outcome and retry state for later inspection
-
-## Documentation
-
-- [Project Overview](docs/project.md)
-- [Architecture](docs/architecture.md)
-- [Roadmap](docs/roadmap.md)
-- [Collector Experiments](docs/experiments.md)
 
 ## Key Files
 
