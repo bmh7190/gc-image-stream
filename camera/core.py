@@ -233,13 +233,18 @@ def log_capture(
     save_elapsed: float,
     cycle_elapsed: float,
     queue_size: int,
+    scheduled_at: float,
+    captured_at: float,
 ):
+    offset_ms = max(0.0, (captured_at - scheduled_at) * 1000)
+
     print(
         "[CAPTURED] "
         f"timestamp={timestamp_ms} "
         f"{capture_label}={capture_elapsed:.3f}s "
         f"save={save_elapsed:.3f}s "
         f"cycle={cycle_elapsed:.3f}s "
+        f"offset_ms={offset_ms:.1f} "
         f"queue={queue_size}"
     )
 

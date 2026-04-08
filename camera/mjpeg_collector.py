@@ -129,6 +129,8 @@ def main():
                 save_elapsed=saved_at - frame_ready_at,
                 cycle_elapsed=saved_at - read_started_at,
                 queue_size=register_queue.qsize(),
+                scheduled_at=scheduled_at,
+                captured_at=frame_ready_at,
             )
 
             next_capture_at = log_schedule_lag(

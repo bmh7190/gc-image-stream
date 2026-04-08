@@ -91,6 +91,8 @@ def main():
                     save_elapsed=saved_at - downloaded_at,
                     cycle_elapsed=saved_at - request_started_at,
                     queue_size=register_queue.qsize(),
+                    scheduled_at=scheduled_at,
+                    captured_at=downloaded_at,
                 )
             except Exception as exc:
                 print(f"[CAPTURE ERROR] error={exc}")
