@@ -235,11 +235,13 @@ def log_capture(
     queue_size: int,
     scheduled_at: float,
     captured_at: float,
+    runtime_elapsed: float,
 ):
     offset_ms = max(0.0, (captured_at - scheduled_at) * 1000)
 
     print(
         "[CAPTURED] "
+        f"runtime_s={runtime_elapsed:.3f} "
         f"timestamp={timestamp_ms} "
         f"{capture_label}={capture_elapsed:.3f}s "
         f"save={save_elapsed:.3f}s "
@@ -255,6 +257,7 @@ def log_schedule_lag(
     interval_sec: float,
     loop_started_at: float,
     loop_finished_at: float,
+    runtime_elapsed: float,
 ) -> float:
     adjusted_next_capture_at = calculate_next_capture_at(
         scheduled_at=scheduled_at,
@@ -275,6 +278,7 @@ def log_schedule_lag(
         if skipped > 0:
             print(
                 "[SCHEDULE LAG] "
+                f"runtime_s={runtime_elapsed:.3f} "
                 f"skipped={skipped} "
                 f"loop={(loop_finished_at - loop_started_at):.3f}s"
             )

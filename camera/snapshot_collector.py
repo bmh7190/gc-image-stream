@@ -51,6 +51,7 @@ def main():
 
     register_queue, stop_event, worker = start_register_worker(config)
     snapshot_session = httpx.Client()
+    started_at = time.monotonic()
     next_capture_at = time.monotonic()
 
     try:
@@ -93,6 +94,7 @@ def main():
                     queue_size=register_queue.qsize(),
                     scheduled_at=scheduled_at,
                     captured_at=downloaded_at,
+                    runtime_elapsed=saved_at - started_at,
                 )
             except Exception as exc:
                 print(f"[CAPTURE ERROR] error={exc}")
@@ -103,6 +105,7 @@ def main():
                 interval_sec=config.collect_interval_sec,
                 loop_started_at=request_started_at,
                 loop_finished_at=loop_finished_at,
+                runtime_elapsed=loop_finished_at - started_at,
             )
     except KeyboardInterrupt:
         print("[STOP] shutting down collector")

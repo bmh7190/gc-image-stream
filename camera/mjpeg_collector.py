@@ -87,6 +87,7 @@ def main():
 
     register_queue, stop_event, worker = start_register_worker(config)
     stream_session = httpx.Client()
+    started_at = time.monotonic()
     next_capture_at = time.monotonic()
     frame_iter = iter_mjpeg_frames(
         session=stream_session,
@@ -131,6 +132,7 @@ def main():
                 queue_size=register_queue.qsize(),
                 scheduled_at=scheduled_at,
                 captured_at=frame_ready_at,
+                runtime_elapsed=saved_at - started_at,
             )
 
             next_capture_at = log_schedule_lag(
@@ -138,6 +140,7 @@ def main():
                 interval_sec=config.collect_interval_sec,
                 loop_started_at=read_started_at,
                 loop_finished_at=saved_at,
+                runtime_elapsed=saved_at - started_at,
             )
     except KeyboardInterrupt:
         print("[STOP] shutting down MJPEG collector")
