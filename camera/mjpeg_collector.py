@@ -3,6 +3,7 @@ import time
 
 import httpx
 
+from camera.mjpeg_stream import extract_mjpeg_frames, iter_mjpeg_frames
 from camera.collector import (
     DEFAULT_STREAM_TIMEOUT_SEC,
     build_collector_config,
@@ -22,10 +23,6 @@ from camera.collector import (
 )
 
 
-JPEG_SOI = b"\xff\xd8"
-JPEG_EOI = b"\xff\xd9"
-
-
 # MJPEG collector용 설정을 만든다.
 def build_config():
     return build_collector_config(
@@ -33,49 +30,6 @@ def build_config():
         timeout_env_name="STREAM_TIMEOUT_SEC",
         default_capture_timeout_sec=DEFAULT_STREAM_TIMEOUT_SEC,
     )
-
-
-# 바이트 버퍼에서 완성된 JPEG 프레임만 잘라낸다.
-def extract_mjpeg_frames(buffer: bytearray) -> list[bytes]:
-    frames: list[bytes] = []
-
-    while True:
-        start_index = buffer.find(JPEG_SOI)
-        if start_index == -1:
-            buffer.clear()
-            break
-
-        end_index = buffer.find(JPEG_EOI, start_index + len(JPEG_SOI))
-        if end_index == -1:
-            if start_index > 0:
-                del buffer[:start_index]
-            break
-
-        frame_end = end_index + len(JPEG_EOI)
-        frames.append(bytes(buffer[start_index:frame_end]))
-        del buffer[:frame_end]
-
-    return frames
-
-
-# MJPEG 스트림을 읽으면서 JPEG 프레임을 순서대로 꺼낸다.
-def iter_mjpeg_frames(
-    session: httpx.Client,
-    url: str,
-    timeout_sec: float,
-    chunk_size: int = 65_536,
-):
-    buffer = bytearray()
-    with session.stream("GET", url, timeout=timeout_sec) as response:
-        response.raise_for_status()
-
-        for chunk in response.iter_bytes(chunk_size=chunk_size):
-            if not chunk:
-                continue
-
-            buffer.extend(chunk)
-            for frame in extract_mjpeg_frames(buffer):
-                yield frame
 
 
 # MJPEG 스트림에서 프레임을 샘플링하며 수집 루프를 실행한다.

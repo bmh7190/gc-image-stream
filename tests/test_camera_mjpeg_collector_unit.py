@@ -1,4 +1,4 @@
-from camera import mjpeg_collector
+from camera import mjpeg_collector, mjpeg_stream
 
 
 def test_build_config_reads_stream_env(monkeypatch):
@@ -24,7 +24,7 @@ def test_extract_mjpeg_frames_returns_complete_jpegs():
         b"\xff\xd8frame2\xff\xd9"
     )
 
-    frames = mjpeg_collector.extract_mjpeg_frames(buffer)
+    frames = mjpeg_stream.extract_mjpeg_frames(buffer)
 
     assert frames == [b"\xff\xd8frame1\xff\xd9", b"\xff\xd8frame2\xff\xd9"]
     assert buffer == bytearray()
@@ -37,7 +37,7 @@ def test_extract_mjpeg_frames_keeps_incomplete_tail():
         b"\xff\xd8partial"
     )
 
-    frames = mjpeg_collector.extract_mjpeg_frames(buffer)
+    frames = mjpeg_stream.extract_mjpeg_frames(buffer)
 
     assert frames == [b"\xff\xd8complete\xff\xd9"]
     assert buffer == bytearray(b"\xff\xd8partial")

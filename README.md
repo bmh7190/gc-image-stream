@@ -54,8 +54,9 @@ app/
   services/         frame/group/dispatch business logic
   utils/            file/path utilities
 camera/
+  mjpeg_stream.py       MJPEG parsing and frame iterator
   snapshot_collector.py snapshot collector
-  mjpeg_collector.py    MJPEG stream collector
+  mjpeg_collector.py    legacy standalone MJPEG collector
   core.py               shared collector logic
 fake_camera_generator.py test data generator for fake cameras
 tests/              automated tests
@@ -258,4 +259,5 @@ Automatic retry is handled by the server loop, and failed groups can also be ret
 - [`app/services/sync_service.py`](app/services/sync_service.py)
 - [`camera/snapshot_collector.py`](camera/snapshot_collector.py)
 - [`camera/mjpeg_collector.py`](camera/mjpeg_collector.py)
+- [`camera/mjpeg_stream.py`](camera/mjpeg_stream.py)
 - [`fake_camera_generator.py`](fake_camera_generator.py)

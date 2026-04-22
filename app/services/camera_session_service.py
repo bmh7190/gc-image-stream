@@ -8,7 +8,7 @@ import httpx
 from app.db import SessionLocal
 from app.services.stream_ingest_service import ingest_frame
 from camera.collector.timing import calculate_next_capture_at
-from camera.mjpeg_collector import iter_mjpeg_frames
+from camera.mjpeg_stream import iter_mjpeg_frames
 
 
 @dataclass(frozen=True)
