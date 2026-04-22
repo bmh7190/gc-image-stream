@@ -24,9 +24,13 @@ from camera.collector.registration import (
     stop_register_runtime,
 )
 from camera.collector.relay import (
+    enqueue_legacy_direct_relay,
     enqueue_relay,
+    legacy_direct_relay_worker,
     relay_worker,
+    start_legacy_direct_relay_worker,
     start_relay_worker,
+    stop_legacy_direct_relay_runtime,
     stop_relay_runtime,
 )
 from camera.collector.storage import build_save_path, ensure_dir, save_image
@@ -51,9 +55,11 @@ __all__ = [
     "build_save_path",
     "calculate_next_capture_at",
     "close_experiment_recorder",
+    "enqueue_legacy_direct_relay",
     "enqueue_registration",
     "enqueue_relay",
     "ensure_dir",
+    "legacy_direct_relay_worker",
     "load_env_file",
     "log_capture",
     "log_schedule_lag",
@@ -63,8 +69,10 @@ __all__ = [
     "sanitize_experiment_id",
     "save_image",
     "start_experiment_recorder",
+    "start_legacy_direct_relay_worker",
     "start_register_worker",
     "start_relay_worker",
+    "stop_legacy_direct_relay_runtime",
     "stop_register_runtime",
     "stop_relay_runtime",
 ]

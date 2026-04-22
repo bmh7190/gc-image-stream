@@ -5,8 +5,13 @@ from camera.collector.config import CollectorConfig
 from camera.collector.experiments import ExperimentRecorder
 
 
-# gRPC relay worker가 큐에서 프레임을 꺼내 processing server로 stream 전송한다.
-def relay_worker(
+LEGACY_DIRECT_RELAY_NOTE = (
+    "Collector direct relay is a transitional fallback. "
+    "Use StreamRelayService for the primary Stream Server processing path."
+)
+
+
+def legacy_direct_relay_worker(
     stop_event: Event,
     relay_queue: Queue[dict],
     config: CollectorConfig,
@@ -49,7 +54,7 @@ def relay_worker(
             timeout=config.grpc_relay_timeout_sec,
         )
         print(
-            "[RELAY CLOSED] "
+            "[LEGACY DIRECT RELAY CLOSED] "
             f"success={ack.success} "
             f"received={ack.received_count} "
             f"message={ack.message}"
@@ -61,15 +66,14 @@ def relay_worker(
                 message=ack.message,
             )
     except Exception as exc:
-        print(f"[RELAY ERROR] error={exc}")
+        print(f"[LEGACY DIRECT RELAY ERROR] error={exc}")
         if experiment_recorder is not None:
             experiment_recorder.record_relay_error(str(exc))
     finally:
         channel.close()
 
 
-# relay target이 있으면 gRPC relay worker를 시작한다.
-def start_relay_worker(
+def start_legacy_direct_relay_worker(
     config: CollectorConfig,
     experiment_recorder: ExperimentRecorder | None = None,
 ):
@@ -86,7 +90,7 @@ def start_relay_worker(
     relay_queue: Queue[dict] = Queue()
     stop_event = Event()
     worker = Thread(
-        target=relay_worker,
+        target=legacy_direct_relay_worker,
         args=(stop_event, relay_queue, config, experiment_recorder),
         daemon=True,
     )
@@ -94,8 +98,11 @@ def start_relay_worker(
     return relay_queue, stop_event, worker
 
 
-# relay worker를 안전하게 종료한다.
-def stop_relay_runtime(stop_event: Event | None, relay_queue: Queue[dict] | None, worker: Thread | None):
+def stop_legacy_direct_relay_runtime(
+    stop_event: Event | None,
+    relay_queue: Queue[dict] | None,
+    worker: Thread | None,
+):
     if stop_event is None or relay_queue is None or worker is None:
         return
 
@@ -104,8 +111,7 @@ def stop_relay_runtime(stop_event: Event | None, relay_queue: Queue[dict] | None
     worker.join(timeout=2.0)
 
 
-# relay 대상 프레임을 큐에 넣는다.
-def enqueue_relay(
+def enqueue_legacy_direct_relay(
     relay_queue: Queue[dict] | None,
     camera_name: str,
     timestamp_ms: int,
@@ -134,3 +140,10 @@ def enqueue_relay(
             image_bytes_size=len(image_bytes),
             queue_size=relay_queue.qsize(),
         )
+
+
+# Backward-compatible aliases for older standalone collector imports.
+relay_worker = legacy_direct_relay_worker
+start_relay_worker = start_legacy_direct_relay_worker
+stop_relay_runtime = stop_legacy_direct_relay_runtime
+enqueue_relay = enqueue_legacy_direct_relay

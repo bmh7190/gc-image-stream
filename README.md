@@ -89,6 +89,9 @@ CAMERA_SESSIONS_ENABLED=false
 ```
 
 If you use collector scripts, prepare per-camera env files such as `.env.camera1`.
+Standalone collector scripts are legacy/transitional runners. Their direct gRPC
+relay settings are fallback-only; the primary processing path is Stream Server
+relay through `STREAM_RELAY_ENABLED` and `STREAM_RELAY_TARGET`.
 
 Example:
 
@@ -100,6 +103,13 @@ COLLECT_INTERVAL_SEC=1.0
 REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 EXPERIMENT_ID=camera1-mjpeg-relay
 EXPERIMENT_LOG_DIR=experiment_logs
+```
+
+Optional legacy direct relay for standalone collector experiments:
+
+```env
+GRPC_RELAY_TARGET=127.0.0.1:50051
+GRPC_RELAY_TIMEOUT_SEC=60
 ```
 
 For internal Stream Server camera workers, configure a camera list in the server `.env`.

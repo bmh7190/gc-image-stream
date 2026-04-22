@@ -9,16 +9,16 @@ from camera.collector import (
     build_collector_config,
     build_save_path,
     close_experiment_recorder,
-    enqueue_relay,
+    enqueue_legacy_direct_relay,
     enqueue_registration,
     load_env_file,
     log_capture,
     log_schedule_lag,
     save_image,
     start_experiment_recorder,
-    start_relay_worker,
+    start_legacy_direct_relay_worker,
     start_register_worker,
-    stop_relay_runtime,
+    stop_legacy_direct_relay_runtime,
     stop_register_runtime,
 )
 
@@ -51,7 +51,7 @@ def main():
         config,
         experiment_recorder,
     )
-    relay_queue, relay_stop_event, relay_worker = start_relay_worker(
+    relay_queue, relay_stop_event, relay_worker = start_legacy_direct_relay_worker(
         config,
         experiment_recorder,
     )
@@ -94,7 +94,7 @@ def main():
                 save_path,
             )
             sequence += 1
-            enqueue_relay(
+            enqueue_legacy_direct_relay(
                 relay_queue,
                 config.camera_name,
                 timestamp_ms,
@@ -141,7 +141,7 @@ def main():
     finally:
         stream_session.close()
         stop_register_runtime(stop_event, register_queue, worker)
-        stop_relay_runtime(relay_stop_event, relay_queue, relay_worker)
+        stop_legacy_direct_relay_runtime(relay_stop_event, relay_queue, relay_worker)
         close_experiment_recorder(experiment_recorder)
 
 
