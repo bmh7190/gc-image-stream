@@ -7,8 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.db import Base, get_db
+from app.routes.debug import router as debug_router
 from app.routes.frames import router as frames_router
+from app.routes.monitoring import router as monitoring_router
 from app.routes.sync import router as sync_router
+from app.services.stream_state import stream_state
 from app.utils import file_utils
 
 
@@ -37,9 +40,12 @@ def session_factory(tmp_path):
 
 @pytest.fixture
 def app(session_factory, storage_dir):
+    stream_state.clear()
     test_app = FastAPI()
     test_app.include_router(frames_router)
     test_app.include_router(sync_router)
+    test_app.include_router(monitoring_router)
+    test_app.include_router(debug_router)
 
     def override_get_db():
         db = session_factory()
@@ -49,7 +55,8 @@ def app(session_factory, storage_dir):
             db.close()
 
     test_app.dependency_overrides[get_db] = override_get_db
-    return test_app
+    yield test_app
+    stream_state.clear()
 
 
 @pytest.fixture

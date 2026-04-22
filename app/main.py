@@ -12,7 +12,9 @@ from app.config.server import (
     PROCESSING_SERVER_URL,
 )
 from app.logging_config import configure_logging, format_log_event
+from app.routes.debug import router as debug_router
 from app.routes.frames import router as frames_router
+from app.routes.monitoring import router as monitoring_router
 from app.routes.sync import router as sync_router
 from app.services.frame_maintenance_service import compress_old_dispatched_frames
 from app.services.sync_service import (
@@ -43,6 +45,8 @@ app = FastAPI(
 
 app.include_router(frames_router)
 app.include_router(sync_router)
+app.include_router(monitoring_router)
+app.include_router(debug_router)
 
 AUTO_SYNC_THRESHOLD_MS = 200
 AUTO_SYNC_INTERVAL_SEC = 1.0

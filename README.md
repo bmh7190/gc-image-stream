@@ -34,6 +34,7 @@ Out of scope:
 - local file storage for collected frames
 - SQLite-based metadata management
 - gRPC frame relay from collectors to a processing server
+- stream state monitoring and debug endpoints for latest frames
 - timestamp-based sync grouping as a fallback/debug path
 - manual grouped HTTP dispatch
 - optional automatic grouped HTTP dispatch
@@ -131,6 +132,16 @@ Set `EXPERIMENT_ID` in each camera env file to make runs easy to compare. Set `E
 - `GET /sync/groups/{group_id}`
 - `POST /sync/groups/{group_id}/dispatch`
 - `POST /sync/groups/{group_id}/retry`
+
+### Monitoring
+
+- `GET /monitoring/cameras`
+- `GET /monitoring/cameras/{device_id}`
+
+### Debug
+
+- `GET /debug/cameras/{device_id}/latest-frame`
+- `GET /debug/timestamp-delta`
 
 `GET /sync/summary` returns an operational summary across sync groups:
 
