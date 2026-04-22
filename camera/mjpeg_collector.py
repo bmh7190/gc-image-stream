@@ -7,19 +7,19 @@ from camera.mjpeg_stream import extract_mjpeg_frames, iter_mjpeg_frames
 from camera.collector import (
     DEFAULT_STREAM_TIMEOUT_SEC,
     build_collector_config,
-    build_save_path,
+    build_legacy_collector_save_path,
     close_experiment_recorder,
     enqueue_legacy_direct_relay,
-    enqueue_registration,
+    enqueue_legacy_registration,
     load_env_file,
     log_capture,
     log_schedule_lag,
-    save_image,
+    save_legacy_collector_image,
     start_experiment_recorder,
     start_legacy_direct_relay_worker,
-    start_register_worker,
+    start_legacy_register_worker,
     stop_legacy_direct_relay_runtime,
-    stop_register_runtime,
+    stop_legacy_register_runtime,
 )
 
 
@@ -47,7 +47,7 @@ def main():
     print(f"[STORAGE DIR] {config.storage_dir}")
 
     experiment_recorder = start_experiment_recorder(config, "mjpeg")
-    register_queue, stop_event, worker = start_register_worker(
+    register_queue, stop_event, worker = start_legacy_register_worker(
         config,
         experiment_recorder,
     )
@@ -79,15 +79,15 @@ def main():
 
             scheduled_at = next_capture_at
             timestamp_ms = int(time.time() * 1000)
-            save_path = build_save_path(
+            save_path = build_legacy_collector_save_path(
                 config.camera_name,
                 timestamp_ms,
                 config.storage_dir,
             )
-            save_image(save_path, image_bytes)
+            save_legacy_collector_image(save_path, image_bytes)
             saved_at = time.monotonic()
 
-            enqueue_registration(
+            enqueue_legacy_registration(
                 register_queue,
                 config.camera_name,
                 timestamp_ms,
@@ -140,7 +140,7 @@ def main():
         print("[STOP] shutting down MJPEG collector")
     finally:
         stream_session.close()
-        stop_register_runtime(stop_event, register_queue, worker)
+        stop_legacy_register_runtime(stop_event, register_queue, worker)
         stop_legacy_direct_relay_runtime(relay_stop_event, relay_queue, relay_worker)
         close_experiment_recorder(experiment_recorder)
 

@@ -17,10 +17,15 @@ from camera.collector.experiments import (
     start_experiment_recorder,
 )
 from camera.collector.registration import (
+    enqueue_legacy_registration,
     enqueue_registration,
+    legacy_register_worker,
+    register_legacy_frame_to_server,
     register_to_server,
     register_worker,
+    start_legacy_register_worker,
     start_register_worker,
+    stop_legacy_register_runtime,
     stop_register_runtime,
 )
 from camera.collector.relay import (
@@ -33,7 +38,14 @@ from camera.collector.relay import (
     stop_legacy_direct_relay_runtime,
     stop_relay_runtime,
 )
-from camera.collector.storage import build_save_path, ensure_dir, save_image
+from camera.collector.storage import (
+    build_legacy_collector_save_path,
+    build_save_path,
+    ensure_dir,
+    ensure_legacy_collector_dir,
+    save_image,
+    save_legacy_collector_image,
+)
 from camera.collector.timing import (
     calculate_next_capture_at,
     log_capture,
@@ -52,27 +64,35 @@ __all__ = [
     "CollectorConfig",
     "ExperimentRecorder",
     "build_collector_config",
+    "build_legacy_collector_save_path",
     "build_save_path",
     "calculate_next_capture_at",
     "close_experiment_recorder",
     "enqueue_legacy_direct_relay",
+    "enqueue_legacy_registration",
     "enqueue_registration",
     "enqueue_relay",
     "ensure_dir",
+    "ensure_legacy_collector_dir",
     "legacy_direct_relay_worker",
+    "legacy_register_worker",
     "load_env_file",
     "log_capture",
     "log_schedule_lag",
     "register_to_server",
+    "register_legacy_frame_to_server",
     "register_worker",
     "relay_worker",
     "sanitize_experiment_id",
     "save_image",
+    "save_legacy_collector_image",
     "start_experiment_recorder",
     "start_legacy_direct_relay_worker",
+    "start_legacy_register_worker",
     "start_register_worker",
     "start_relay_worker",
     "stop_legacy_direct_relay_runtime",
+    "stop_legacy_register_runtime",
     "stop_register_runtime",
     "stop_relay_runtime",
 ]

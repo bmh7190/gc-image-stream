@@ -92,6 +92,8 @@ If you use collector scripts, prepare per-camera env files such as `.env.camera1
 Standalone collector scripts are legacy/transitional runners. Their direct gRPC
 relay settings are fallback-only; the primary processing path is Stream Server
 relay through `STREAM_RELAY_ENABLED` and `STREAM_RELAY_TARGET`.
+Their local save and `REGISTER_API_URL` flow are also fallback-only; primary
+storage and DB registration happen inside Stream Server `ingest_frame()`.
 
 Example:
 

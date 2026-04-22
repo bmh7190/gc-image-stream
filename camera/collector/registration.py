@@ -8,8 +8,13 @@ from camera.collector.config import CollectorConfig
 from camera.collector.experiments import ExperimentRecorder
 
 
-# 프레임 메타데이터를 서버에 등록한다.
-def register_to_server(
+LEGACY_HTTP_REGISTER_NOTE = (
+    "Standalone collector HTTP registration is a transitional fallback. "
+    "Primary Stream Server registration happens through ingest_frame()."
+)
+
+
+def register_legacy_frame_to_server(
     session: httpx.Client,
     register_api_url: str,
     device_id: str,
@@ -26,8 +31,7 @@ def register_to_server(
     return session.post(register_api_url, data=data, timeout=timeout_sec)
 
 
-# 백그라운드에서 등록 큐를 소비하며 서버 등록을 처리한다.
-def register_worker(
+def legacy_register_worker(
     stop_event: Event,
     register_queue: Queue[dict],
     config: CollectorConfig,
@@ -44,7 +48,7 @@ def register_worker(
 
             started_at = time.monotonic()
             try:
-                response = register_to_server(
+                response = register_legacy_frame_to_server(
                     session=session,
                     register_api_url=config.register_api_url,
                     device_id=item["device_id"],
@@ -64,7 +68,7 @@ def register_worker(
                             status_code=response.status_code,
                         )
                     print(
-                        "[REGISTERED] "
+                        "[LEGACY REGISTERED] "
                         f"timestamp={item['timestamp']} "
                         f"elapsed={elapsed:.3f}s "
                         f"queue={register_queue.qsize()}"
@@ -80,7 +84,7 @@ def register_worker(
                             error=response.text,
                         )
                     print(
-                        "[REGISTER FAILED] "
+                        "[LEGACY REGISTER FAILED] "
                         f"timestamp={item['timestamp']} "
                         f"status={response.status_code} "
                         f"elapsed={elapsed:.3f}s "
@@ -97,7 +101,7 @@ def register_worker(
                         error=str(exc),
                     )
                 print(
-                    "[REGISTER ERROR] "
+                    "[LEGACY REGISTER ERROR] "
                     f"timestamp={item['timestamp']} "
                     f"elapsed={elapsed:.3f}s "
                     f"error={exc}"
@@ -108,15 +112,14 @@ def register_worker(
         session.close()
 
 
-# 등록 worker 실행에 필요한 큐와 스레드를 시작한다.
-def start_register_worker(
+def start_legacy_register_worker(
     config: CollectorConfig,
     experiment_recorder: ExperimentRecorder | None = None,
 ):
     register_queue: Queue[dict] = Queue()
     stop_event = Event()
     worker = Thread(
-        target=register_worker,
+        target=legacy_register_worker,
         args=(stop_event, register_queue, config, experiment_recorder),
         daemon=True,
     )
@@ -124,15 +127,17 @@ def start_register_worker(
     return register_queue, stop_event, worker
 
 
-# 등록 worker를 안전하게 종료한다.
-def stop_register_runtime(stop_event: Event, register_queue: Queue[dict], worker: Thread):
+def stop_legacy_register_runtime(
+    stop_event: Event,
+    register_queue: Queue[dict],
+    worker: Thread,
+):
     stop_event.set()
     register_queue.join()
     worker.join(timeout=2.0)
 
 
-# 저장된 프레임을 등록 큐에 넣는다.
-def enqueue_registration(
+def enqueue_legacy_registration(
     register_queue: Queue[dict],
     camera_name: str,
     timestamp_ms: int,
@@ -145,3 +150,11 @@ def enqueue_registration(
             "file_path": save_path,
         }
     )
+
+
+# Backward-compatible aliases for older standalone collector imports.
+register_to_server = register_legacy_frame_to_server
+register_worker = legacy_register_worker
+start_register_worker = start_legacy_register_worker
+stop_register_runtime = stop_legacy_register_runtime
+enqueue_registration = enqueue_legacy_registration
