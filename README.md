@@ -6,8 +6,8 @@ This repository is responsible for:
 
 - collecting frame data from camera apps or camera streams
 - storing image files and frame metadata
-- building timestamp-based sync groups
-- dispatching grouped payloads to an external processing server
+- relaying frame streams to an external processing server
+- keeping timestamp-based sync grouping as a fallback batch path
 
 This repository does **not** implement the processing server itself. Its job is to supply clean, stable input to that external system.
 
@@ -17,8 +17,8 @@ The current scope of this repository is limited to the collection pipeline:
 
 1. ingest frames from multiple cameras
 2. save files and metadata safely
-3. group nearby timestamps across devices
-4. send grouped data to an external processing server
+3. relay frame bytes and metadata to an external processing server
+4. keep grouped HTTP dispatch available for fallback and debugging
 
 Out of scope:
 
@@ -33,8 +33,10 @@ Out of scope:
 - FastAPI-based frame upload and registration endpoints
 - local file storage for collected frames
 - SQLite-based metadata management
-- timestamp-based sync grouping
-- manual and automatic dispatch
+- gRPC frame relay from collectors to a processing server
+- timestamp-based sync grouping as a fallback/debug path
+- manual grouped HTTP dispatch
+- optional automatic grouped HTTP dispatch
 - dispatch state tracking per sync group
 - retry scheduling for retryable dispatch failures
 - operational retry controls for failed sync groups
@@ -75,6 +77,7 @@ Example:
 DATABASE_URL=sqlite:///./frames.db
 STORAGE_DIR=storage
 PROCESSING_SERVER_URL=http://127.0.0.1:9000/process
+AUTO_SYNC_ENABLED=false
 ```
 
 If you use collector scripts, prepare per-camera env files such as `.env.camera1`.
@@ -87,6 +90,8 @@ CAMERA_SNAPSHOT_URL=http://127.0.0.1:8080/shot.jpg
 CAMERA_STREAM_URL=http://127.0.0.1:8080/video
 COLLECT_INTERVAL_SEC=1.0
 REGISTER_API_URL=http://127.0.0.1:8000/frames/register
+EXPERIMENT_ID=camera1-mjpeg-relay
+EXPERIMENT_LOG_DIR=experiment_logs
 ```
 
 ### 3. Run the server
@@ -100,6 +105,15 @@ REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
+
+## Collector Experiment Logs
+
+Collector runs save experiment records by default under `experiment_logs/<experiment-id>/`.
+
+- `events.jsonl`: capture, register, relay, and schedule-lag events
+- `summary.json`: aggregate counts, average fps, offsets, byte totals, and error counts
+
+Set `EXPERIMENT_ID` in each camera env file to make runs easy to compare. Set `EXPERIMENT_LOG_DIR=` to disable file logging for a run.
 
 ## API Summary
 
@@ -162,6 +176,8 @@ Dispatch status meanings:
 - `success`: the group was dispatched successfully
 - `failed`: the dispatch failed and is not retryable
 - `exhausted`: the dispatch failed repeatedly and has reached the retry limit
+
+Automatic sync grouping and grouped HTTP dispatch are disabled by default because gRPC frame relay is the primary processing path. Set `AUTO_SYNC_ENABLED=true` only when you want to run the legacy grouped dispatch loop.
 
 ## Dispatch Retry Policy
 

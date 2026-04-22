@@ -1,1 +1,6 @@
-from app.config.server import DATABASE_URL, PROCESSING_SERVER_URL, STORAGE_DIR
+from app.config.server import (
+    AUTO_SYNC_ENABLED,
+    DATABASE_URL,
+    PROCESSING_SERVER_URL,
+    STORAGE_DIR,
+)

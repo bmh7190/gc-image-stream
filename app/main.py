@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.db import Base, engine, SessionLocal, ensure_database_schema
 from app.config.server import (
+    AUTO_SYNC_ENABLED,
     FRAME_COMPRESS_AFTER_SEC,
     FRAME_COMPRESS_BATCH_SIZE,
     FRAME_COMPRESS_JPEG_QUALITY,
@@ -31,11 +32,12 @@ ensure_database_schema()
 
 app = FastAPI(
     title="GC Image Stream",
-    summary="멀티 카메라 프레임 수집 및 동기화 전송을 담당하는 컬렉션 백엔드",
+    summary="멀티 카메라 프레임 수집 및 스트림 릴레이를 담당하는 컬렉션 백엔드",
     description=(
         "GC Image Stream은 카메라 앱 또는 수집기에서 전달된 프레임 데이터를 받아 파일과 "
-        "메타데이터를 저장하고, 타임스탬프 기준으로 sync group을 만든 뒤 외부 처리 서버로 "
-        "전달하는 수집 서버입니다. 처리 서버 내부 동작은 이 API의 범위에 포함되지 않습니다."
+        "메타데이터를 저장하고, gRPC relay를 통해 외부 processing server로 프레임 스트림을 "
+        "전달하는 수집 서버입니다. 기존 sync group 기반 HTTP dispatch는 fallback 및 "
+        "디버깅 경로로 유지됩니다."
     ),
 )
 
@@ -167,19 +169,28 @@ async def frame_maintenance_loop():
         await asyncio.sleep(FRAME_MAINTENANCE_INTERVAL_SEC)
 
 
-# 서버 시작 시 자동 sync 루프를 백그라운드로 띄운다.
+# 서버 시작 시 필요한 백그라운드 루프를 띄운다.
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(auto_sync_loop())
-    asyncio.create_task(frame_maintenance_loop())
-    logger.info(
-        format_log_event(
-            "auto_sync_started",
-            interval_sec=AUTO_SYNC_INTERVAL_SEC,
-            threshold_ms=AUTO_SYNC_THRESHOLD_MS,
-            dispatch_url=PROCESSING_SERVER_URL,
+    if AUTO_SYNC_ENABLED:
+        asyncio.create_task(auto_sync_loop())
+        logger.info(
+            format_log_event(
+                "auto_sync_started",
+                interval_sec=AUTO_SYNC_INTERVAL_SEC,
+                threshold_ms=AUTO_SYNC_THRESHOLD_MS,
+                dispatch_url=PROCESSING_SERVER_URL,
+            )
         )
-    )
+    else:
+        logger.info(
+            format_log_event(
+                "auto_sync_disabled",
+                reason="grpc_relay_primary_path",
+            )
+        )
+
+    asyncio.create_task(frame_maintenance_loop())
     logger.info(
         format_log_event(
             "frame_maintenance_started",

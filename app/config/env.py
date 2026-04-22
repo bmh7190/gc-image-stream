@@ -45,3 +45,18 @@ def get_optional_int_env(name: str, default: int) -> int:
         return int(raw_value)
     except ValueError as exc:
         raise RuntimeError(f"Invalid int value for {name}: {raw_value}") from exc
+
+
+# 선택 환경변수가 있으면 bool로 변환하고, 없으면 기본값을 사용한다.
+def get_optional_bool_env(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+
+    normalized = raw_value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+
+    raise RuntimeError(f"Invalid bool value for {name}: {raw_value}")
