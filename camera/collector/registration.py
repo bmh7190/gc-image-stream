@@ -4,8 +4,8 @@ from threading import Event, Thread
 
 import httpx
 
-from camera.config import CollectorConfig
-from camera.experiments import ExperimentRecorder
+from camera.collector.config import CollectorConfig
+from camera.collector.experiments import ExperimentRecorder
 
 
 # 프레임 메타데이터를 서버에 등록한다.

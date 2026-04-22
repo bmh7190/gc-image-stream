@@ -1,4 +1,4 @@
-from camera.experiments import ExperimentRecorder
+from camera.collector.experiments import ExperimentRecorder
 
 
 # 목표 주기를 기준으로 다음 캡처 시각을 계산한다.

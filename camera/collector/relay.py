@@ -1,8 +1,8 @@
 from queue import Empty, Queue
 from threading import Event, Thread
 
-from camera.config import CollectorConfig
-from camera.experiments import ExperimentRecorder
+from camera.collector.config import CollectorConfig
+from camera.collector.experiments import ExperimentRecorder
 
 
 # gRPC relay worker가 큐에서 프레임을 꺼내 processing server로 stream 전송한다.

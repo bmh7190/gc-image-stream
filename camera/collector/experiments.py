@@ -3,8 +3,8 @@ import os
 import time
 from threading import Lock
 
-from camera.config import CollectorConfig
-from camera.storage import ensure_dir
+from camera.collector.config import CollectorConfig
+from camera.collector.storage import ensure_dir
 
 
 class ExperimentRecorder:
