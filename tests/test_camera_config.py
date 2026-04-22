@@ -1,0 +1,29 @@
+import pytest
+
+from app.config.cameras import build_camera_session_configs_from_env
+
+
+def test_build_camera_session_configs_from_env(monkeypatch):
+    monkeypatch.setenv("CAMERA_SESSIONS", "camera1,camera2")
+    monkeypatch.setenv("CAMERA1_STREAM_URL", "http://camera1.local/video")
+    monkeypatch.setenv("CAMERA1_COLLECT_INTERVAL_SEC", "0.1")
+    monkeypatch.setenv("CAMERA1_CAPTURE_TIMEOUT_SEC", "8")
+    monkeypatch.setenv("CAMERA2_STREAM_URL", "http://camera2.local/video")
+
+    configs = build_camera_session_configs_from_env()
+
+    assert [config.device_id for config in configs] == ["camera1", "camera2"]
+    assert configs[0].source_url == "http://camera1.local/video"
+    assert configs[0].collect_interval_sec == 0.1
+    assert configs[0].capture_timeout_sec == 8.0
+    assert configs[1].source_url == "http://camera2.local/video"
+    assert configs[1].collect_interval_sec == 1.0
+    assert configs[1].capture_timeout_sec == 10.0
+
+
+def test_build_camera_session_configs_requires_stream_url(monkeypatch):
+    monkeypatch.setenv("CAMERA_SESSIONS", "camera1")
+    monkeypatch.delenv("CAMERA1_STREAM_URL", raising=False)
+
+    with pytest.raises(RuntimeError, match="CAMERA1_STREAM_URL"):
+        build_camera_session_configs_from_env()

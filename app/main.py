@@ -2,6 +2,10 @@ import asyncio
 import logging
 from fastapi import FastAPI
 
+from app.config.cameras import (
+    CAMERA_SESSIONS_ENABLED,
+    build_camera_session_configs_from_env,
+)
 from app.db import Base, engine, SessionLocal, ensure_database_schema
 from app.config.server import (
     AUTO_SYNC_ENABLED,
@@ -16,6 +20,7 @@ from app.routes.debug import router as debug_router
 from app.routes.frames import router as frames_router
 from app.routes.monitoring import router as monitoring_router
 from app.routes.sync import router as sync_router
+from app.services.camera_session_manager import camera_session_manager
 from app.services.frame_maintenance_service import compress_old_dispatched_frames
 from app.services.sync_service import (
     build_sync_groups,
@@ -176,6 +181,22 @@ async def frame_maintenance_loop():
 # 서버 시작 시 필요한 백그라운드 루프를 띄운다.
 @app.on_event("startup")
 async def startup_event():
+    if CAMERA_SESSIONS_ENABLED:
+        camera_configs = build_camera_session_configs_from_env()
+        camera_session_manager.start_all(camera_configs)
+        logger.info(
+            format_log_event(
+                "camera_sessions_started",
+                count=len(camera_configs),
+            )
+        )
+    else:
+        logger.info(
+            format_log_event(
+                "camera_sessions_disabled",
+            )
+        )
+
     if AUTO_SYNC_ENABLED:
         asyncio.create_task(auto_sync_loop())
         logger.info(
@@ -204,6 +225,12 @@ async def startup_event():
             batch_size=FRAME_COMPRESS_BATCH_SIZE,
         )
     )
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    camera_session_manager.stop_all()
+    logger.info(format_log_event("camera_sessions_stopped"))
 
 
 # 간단한 서버 상태 확인 응답을 반환한다.

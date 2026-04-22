@@ -80,6 +80,7 @@ DATABASE_URL=sqlite:///./frames.db
 STORAGE_DIR=storage
 PROCESSING_SERVER_URL=http://127.0.0.1:9000/process
 AUTO_SYNC_ENABLED=false
+CAMERA_SESSIONS_ENABLED=false
 ```
 
 If you use collector scripts, prepare per-camera env files such as `.env.camera1`.
@@ -94,6 +95,19 @@ COLLECT_INTERVAL_SEC=1.0
 REGISTER_API_URL=http://127.0.0.1:8000/frames/register
 EXPERIMENT_ID=camera1-mjpeg-relay
 EXPERIMENT_LOG_DIR=experiment_logs
+```
+
+For internal Stream Server camera workers, configure a camera list in the server `.env`.
+
+Example:
+
+```env
+CAMERA_SESSIONS_ENABLED=true
+CAMERA_SESSIONS=camera1,camera2
+CAMERA1_STREAM_URL=http://127.0.0.1:8080/video
+CAMERA1_COLLECT_INTERVAL_SEC=0.1
+CAMERA2_STREAM_URL=http://127.0.0.1:8081/video
+CAMERA2_COLLECT_INTERVAL_SEC=0.1
 ```
 
 ### 3. Run the server

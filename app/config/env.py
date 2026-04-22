@@ -60,3 +60,16 @@ def get_optional_bool_env(name: str, default: bool) -> bool:
         return False
 
     raise RuntimeError(f"Invalid bool value for {name}: {raw_value}")
+
+
+# 선택 환경변수가 있으면 콤마로 구분된 문자열 목록으로 변환한다.
+def get_optional_csv_env(name: str, default: list[str] | None = None) -> list[str]:
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return list(default or [])
+
+    return [
+        item.strip()
+        for item in raw_value.split(",")
+        if item.strip()
+    ]
