@@ -36,6 +36,7 @@ Out of scope:
 - gRPC frame relay from collectors to a processing server
 - stream state monitoring and debug endpoints for latest frames
 - internal camera session worker path for Stream Server ingestion
+- server-side gRPC relay queue from Stream Server to Processing Server
 - timestamp-based sync grouping as a fallback/debug path
 - manual grouped HTTP dispatch
 - optional automatic grouped HTTP dispatch
@@ -80,6 +81,9 @@ DATABASE_URL=sqlite:///./frames.db
 STORAGE_DIR=storage
 PROCESSING_SERVER_URL=http://127.0.0.1:9000/process
 AUTO_SYNC_ENABLED=false
+STREAM_RELAY_ENABLED=false
+STREAM_RELAY_TARGET=127.0.0.1:50051
+STREAM_RELAY_TIMEOUT_SEC=60
 CAMERA_SESSIONS_ENABLED=false
 ```
 
@@ -152,6 +156,7 @@ Set `EXPERIMENT_ID` in each camera env file to make runs easy to compare. Set `E
 
 - `GET /monitoring/cameras`
 - `GET /monitoring/cameras/{device_id}`
+- `GET /monitoring/relay`
 
 ### Debug
 
@@ -204,6 +209,8 @@ Dispatch status meanings:
 - `exhausted`: the dispatch failed repeatedly and has reached the retry limit
 
 Automatic sync grouping and grouped HTTP dispatch are disabled by default because gRPC frame relay is the primary processing path. Set `AUTO_SYNC_ENABLED=true` only when you want to run the legacy grouped dispatch loop.
+
+Server-side gRPC relay is controlled by `STREAM_RELAY_ENABLED`. When enabled, frames accepted by `ingest_frame()` are saved locally, tracked in StreamState, and queued for relay to `STREAM_RELAY_TARGET`.
 
 ## Dispatch Retry Policy
 

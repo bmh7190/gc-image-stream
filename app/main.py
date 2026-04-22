@@ -14,6 +14,9 @@ from app.config.server import (
     FRAME_COMPRESS_JPEG_QUALITY,
     FRAME_MAINTENANCE_INTERVAL_SEC,
     PROCESSING_SERVER_URL,
+    STREAM_RELAY_ENABLED,
+    STREAM_RELAY_TARGET,
+    STREAM_RELAY_TIMEOUT_SEC,
 )
 from app.logging_config import configure_logging, format_log_event
 from app.routes.debug import router as debug_router
@@ -22,6 +25,7 @@ from app.routes.monitoring import router as monitoring_router
 from app.routes.sync import router as sync_router
 from app.services.camera_session_manager import camera_session_manager
 from app.services.frame_maintenance_service import compress_old_dispatched_frames
+from app.services.stream_relay_service import stream_relay_service
 from app.services.sync_service import (
     build_sync_groups,
     dispatch_sync_group,
@@ -181,6 +185,27 @@ async def frame_maintenance_loop():
 # 서버 시작 시 필요한 백그라운드 루프를 띄운다.
 @app.on_event("startup")
 async def startup_event():
+    if STREAM_RELAY_ENABLED:
+        stream_relay_service.configure(
+            target=STREAM_RELAY_TARGET,
+            timeout_sec=STREAM_RELAY_TIMEOUT_SEC,
+            enabled=True,
+        )
+        stream_relay_service.start()
+        logger.info(
+            format_log_event(
+                "stream_relay_started",
+                target=STREAM_RELAY_TARGET,
+            )
+        )
+    else:
+        stream_relay_service.configure(
+            target="",
+            timeout_sec=STREAM_RELAY_TIMEOUT_SEC,
+            enabled=False,
+        )
+        logger.info(format_log_event("stream_relay_disabled"))
+
     if CAMERA_SESSIONS_ENABLED:
         camera_configs = build_camera_session_configs_from_env()
         camera_session_manager.start_all(camera_configs)
@@ -230,6 +255,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     camera_session_manager.stop_all()
+    stream_relay_service.stop()
     logger.info(format_log_event("camera_sessions_stopped"))
 
 

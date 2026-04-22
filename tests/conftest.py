@@ -11,6 +11,7 @@ from app.routes.debug import router as debug_router
 from app.routes.frames import router as frames_router
 from app.routes.monitoring import router as monitoring_router
 from app.routes.sync import router as sync_router
+from app.services.stream_relay_service import stream_relay_service
 from app.services.stream_state import stream_state
 from app.utils import file_utils
 
@@ -41,6 +42,7 @@ def session_factory(tmp_path):
 @pytest.fixture
 def app(session_factory, storage_dir):
     stream_state.clear()
+    stream_relay_service.clear()
     test_app = FastAPI()
     test_app.include_router(frames_router)
     test_app.include_router(sync_router)
@@ -57,6 +59,7 @@ def app(session_factory, storage_dir):
     test_app.dependency_overrides[get_db] = override_get_db
     yield test_app
     stream_state.clear()
+    stream_relay_service.clear()
 
 
 @pytest.fixture

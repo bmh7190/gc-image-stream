@@ -10,6 +10,9 @@ DATABASE_URL = get_required_env("DATABASE_URL")
 STORAGE_DIR = get_required_env("STORAGE_DIR")
 PROCESSING_SERVER_URL = get_required_env("PROCESSING_SERVER_URL")
 AUTO_SYNC_ENABLED = get_optional_bool_env("AUTO_SYNC_ENABLED", False)
+STREAM_RELAY_ENABLED = get_optional_bool_env("STREAM_RELAY_ENABLED", False)
+STREAM_RELAY_TARGET = get_required_env("STREAM_RELAY_TARGET") if STREAM_RELAY_ENABLED else ""
+STREAM_RELAY_TIMEOUT_SEC = get_optional_float_env("STREAM_RELAY_TIMEOUT_SEC", 60.0)
 FRAME_MAINTENANCE_INTERVAL_SEC = get_optional_float_env(
     "FRAME_MAINTENANCE_INTERVAL_SEC",
     60.0,

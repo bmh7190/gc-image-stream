@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.models import Frame
+from app.services.stream_relay_service import stream_relay_service
 from app.services.stream_state import CameraStreamState, StreamState, current_time_ms, stream_state
 
 
@@ -85,3 +86,7 @@ def get_latest_frame_path(db, device_id: str, state: StreamState = stream_state)
 def latest_frame_file_exists(db, device_id: str, state: StreamState = stream_state) -> bool:
     path = get_latest_frame_path(db, device_id, state=state)
     return path is not None and Path(path).is_file()
+
+
+def get_relay_status():
+    return stream_relay_service.status()

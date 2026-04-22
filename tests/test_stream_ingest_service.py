@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.services.stream_ingest_service import ingest_frame
+from app.services.stream_relay_service import StreamRelayService
 from app.services.stream_state import StreamState
 
 
@@ -10,6 +11,7 @@ def test_ingest_frame_saves_file_registers_metadata_and_updates_state(
 ):
     db = session_factory()
     state = StreamState()
+    relay_service = StreamRelayService()
     try:
         result = ingest_frame(
             db,
@@ -19,6 +21,7 @@ def test_ingest_frame_saves_file_registers_metadata_and_updates_state(
             content_type="image/jpeg",
             image_bytes=b"frame-bytes",
             state=state,
+            relay_service=relay_service,
         )
 
         frame = result["frame"]
@@ -35,6 +38,7 @@ def test_ingest_frame_saves_file_registers_metadata_and_updates_state(
         assert camera_state.latest_frame.frame_id == frame.id
         assert camera_state.latest_frame.sequence == 7
         assert camera_state.latest_frame.image_bytes_size == len(b"frame-bytes")
+        assert result["relay_enqueued"] is False
     finally:
         db.close()
 
@@ -45,6 +49,7 @@ def test_ingest_frame_uses_duplicate_registration_fallback(
 ):
     db = session_factory()
     state = StreamState()
+    relay_service = StreamRelayService()
     try:
         first = ingest_frame(
             db,
@@ -53,6 +58,7 @@ def test_ingest_frame_uses_duplicate_registration_fallback(
             sequence=1,
             image_bytes=b"first",
             state=state,
+            relay_service=relay_service,
         )
         second = ingest_frame(
             db,
@@ -61,6 +67,7 @@ def test_ingest_frame_uses_duplicate_registration_fallback(
             sequence=2,
             image_bytes=b"second",
             state=state,
+            relay_service=relay_service,
         )
 
         assert second["frame"].id == first["frame"].id
@@ -69,5 +76,50 @@ def test_ingest_frame_uses_duplicate_registration_fallback(
         assert str(storage_dir) in second["frame"].file_path
         assert second["camera_state"].latest_frame is not None
         assert second["camera_state"].latest_frame.sequence == 2
+    finally:
+        db.close()
+
+
+def test_ingest_frame_enqueues_relay_when_enabled(session_factory):
+    db = session_factory()
+    state = StreamState()
+    relay_service = StreamRelayService()
+    relay_service.configure(target="127.0.0.1:50051", enabled=True)
+    try:
+        result = ingest_frame(
+            db,
+            device_id="camera1",
+            timestamp_ms=1000,
+            sequence=1,
+            image_bytes=b"frame",
+            state=state,
+            relay_service=relay_service,
+        )
+
+        assert result["relay_enqueued"] is True
+        assert relay_service.status()["queue_size"] == 1
+    finally:
+        db.close()
+
+
+def test_ingest_frame_enqueues_relay_without_sequence(session_factory):
+    db = session_factory()
+    state = StreamState()
+    relay_service = StreamRelayService()
+    relay_service.configure(target="127.0.0.1:50051", enabled=True)
+    try:
+        result = ingest_frame(
+            db,
+            device_id="camera1",
+            timestamp_ms=1000,
+            image_bytes=b"frame",
+            state=state,
+            relay_service=relay_service,
+        )
+
+        queued_frame = relay_service.queue.get_nowait()
+        assert result["relay_enqueued"] is True
+        assert queued_frame.sequence == 0
+        assert queued_frame.device_id == "camera1"
     finally:
         db.close()

@@ -1,4 +1,5 @@
 from app.services.stream_ingest_service import ingest_frame
+from app.services.stream_relay_service import stream_relay_service
 from app.services.stream_state import stream_state
 
 
@@ -117,3 +118,14 @@ def test_debug_timestamp_delta_uses_latest_stream_state(client, session_factory)
             "delta_ms": 0,
         },
     ]
+
+
+def test_monitoring_relay_returns_relay_status(client):
+    stream_relay_service.clear()
+    stream_relay_service.configure(target="127.0.0.1:50051", enabled=True)
+
+    response = client.get("/monitoring/relay")
+
+    assert response.status_code == 200
+    assert response.json()["enabled"] is True
+    assert response.json()["target"] == "127.0.0.1:50051"
