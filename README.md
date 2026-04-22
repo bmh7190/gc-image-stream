@@ -35,6 +35,7 @@ Out of scope:
 - SQLite-based metadata management
 - gRPC frame relay from collectors to a processing server
 - stream state monitoring and debug endpoints for latest frames
+- internal camera session worker path for Stream Server ingestion
 - timestamp-based sync grouping as a fallback/debug path
 - manual grouped HTTP dispatch
 - optional automatic grouped HTTP dispatch
