@@ -7,12 +7,14 @@ from camera.core import (
     DEFAULT_STREAM_TIMEOUT_SEC,
     build_collector_config,
     build_save_path,
+    close_experiment_recorder,
     enqueue_relay,
     enqueue_registration,
     load_env_file,
     log_capture,
     log_schedule_lag,
     save_image,
+    start_experiment_recorder,
     start_relay_worker,
     start_register_worker,
     stop_relay_runtime,
@@ -90,8 +92,15 @@ def main():
         print(f"[GRPC RELAY] {config.grpc_relay_target}")
     print(f"[STORAGE DIR] {config.storage_dir}")
 
-    register_queue, stop_event, worker = start_register_worker(config)
-    relay_queue, relay_stop_event, relay_worker = start_relay_worker(config)
+    experiment_recorder = start_experiment_recorder(config, "mjpeg")
+    register_queue, stop_event, worker = start_register_worker(
+        config,
+        experiment_recorder,
+    )
+    relay_queue, relay_stop_event, relay_worker = start_relay_worker(
+        config,
+        experiment_recorder,
+    )
     stream_session = httpx.Client()
     started_at = time.monotonic()
     next_capture_at = time.monotonic()
@@ -138,6 +147,7 @@ def main():
                 sequence,
                 image_bytes,
                 save_path,
+                experiment_recorder,
             )
             log_capture(
                 timestamp_ms=timestamp_ms,
@@ -150,6 +160,19 @@ def main():
                 captured_at=frame_ready_at,
                 runtime_elapsed=saved_at - started_at,
             )
+            if experiment_recorder is not None:
+                experiment_recorder.record_capture(
+                    timestamp_ms=timestamp_ms,
+                    sequence=sequence,
+                    capture_label="stream",
+                    capture_elapsed=frame_ready_at - read_started_at,
+                    save_elapsed=saved_at - frame_ready_at,
+                    cycle_elapsed=saved_at - read_started_at,
+                    queue_size=register_queue.qsize(),
+                    scheduled_at=scheduled_at,
+                    captured_at=frame_ready_at,
+                    image_bytes_size=len(image_bytes),
+                )
 
             next_capture_at = log_schedule_lag(
                 scheduled_at=scheduled_at,
@@ -157,6 +180,7 @@ def main():
                 loop_started_at=read_started_at,
                 loop_finished_at=saved_at,
                 runtime_elapsed=saved_at - started_at,
+                experiment_recorder=experiment_recorder,
             )
     except KeyboardInterrupt:
         print("[STOP] shutting down MJPEG collector")
@@ -164,6 +188,7 @@ def main():
         stream_session.close()
         stop_register_runtime(stop_event, register_queue, worker)
         stop_relay_runtime(relay_stop_event, relay_queue, relay_worker)
+        close_experiment_recorder(experiment_recorder)
 
 
 if __name__ == "__main__":

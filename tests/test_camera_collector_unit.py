@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,8 @@ def test_build_config_reads_required_values(monkeypatch):
     assert config.register_timeout_sec == 5.0
     assert config.grpc_relay_target is None
     assert config.grpc_relay_timeout_sec is None
+    assert config.experiment_log_dir == "experiment_logs"
+    assert config.experiment_id is None
 
 
 def test_build_config_reads_optional_grpc_relay_env(monkeypatch):
@@ -36,6 +39,66 @@ def test_build_config_reads_optional_grpc_relay_env(monkeypatch):
 
     assert config.grpc_relay_target == "127.0.0.1:50051"
     assert config.grpc_relay_timeout_sec == 9.5
+
+
+def test_build_config_reads_optional_experiment_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("CAMERA_NAME", "camera1")
+    monkeypatch.setenv("CAMERA_SNAPSHOT_URL", "http://camera.local/shot.jpg")
+    monkeypatch.setenv("EXPERIMENT_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("EXPERIMENT_ID", "relay-e2e-camera1")
+
+    config = snapshot_collector.build_config()
+
+    assert config.experiment_log_dir == str(tmp_path)
+    assert config.experiment_id == "relay-e2e-camera1"
+
+
+def test_experiment_recorder_writes_events_and_summary(monkeypatch, tmp_path):
+    monkeypatch.setenv("CAMERA_NAME", "camera1")
+    monkeypatch.setenv("CAMERA_SNAPSHOT_URL", "http://camera.local/shot.jpg")
+    monkeypatch.setenv("EXPERIMENT_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("EXPERIMENT_ID", "relay e2e camera1")
+
+    config = snapshot_collector.build_config()
+    recorder = core.start_experiment_recorder(config, "snapshot")
+
+    assert recorder is not None
+    recorder.record_capture(
+        timestamp_ms=1_234,
+        sequence=1,
+        capture_label="download",
+        capture_elapsed=0.01,
+        save_elapsed=0.02,
+        cycle_elapsed=0.03,
+        queue_size=2,
+        scheduled_at=10.0,
+        captured_at=10.005,
+        image_bytes_size=100,
+    )
+    recorder.record_registration(
+        status="registered",
+        timestamp_ms=1_234,
+        elapsed=0.04,
+        queue_size=1,
+        status_code=200,
+    )
+    recorder.record_relay_enqueued(
+        timestamp_ms=1_234,
+        sequence=1,
+        image_bytes_size=100,
+        queue_size=1,
+    )
+    core.close_experiment_recorder(recorder)
+
+    run_dir = tmp_path / "relay-e2e-camera1"
+    events = (run_dir / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+
+    assert any(json.loads(line)["event"] == "captured" for line in events)
+    assert summary["captured_count"] == 1
+    assert summary["registered_count"] == 1
+    assert summary["relay_enqueued_count"] == 1
+    assert summary["image_bytes_total"] == 100
 
 
 def test_enqueue_relay_is_noop_without_queue():
