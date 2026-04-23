@@ -129,3 +129,13 @@ def test_monitoring_relay_returns_relay_status(client):
     assert response.status_code == 200
     assert response.json()["enabled"] is True
     assert response.json()["target"] == "127.0.0.1:50051"
+
+
+def test_debug_viewer_returns_html(client):
+    response = client.get("/debug/viewer")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "GC Debug Viewer" in response.text
+    assert "/monitoring/cameras" in response.text
+    assert "/debug/timestamp-delta" in response.text

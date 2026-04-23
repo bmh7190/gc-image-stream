@@ -173,6 +173,7 @@ Set `EXPERIMENT_ID` in each camera env file to make runs easy to compare. Set `E
 
 ### Debug
 
+- `GET /debug/viewer`
 - `GET /debug/cameras/{device_id}/latest-frame`
 - `GET /debug/timestamp-delta`
 
