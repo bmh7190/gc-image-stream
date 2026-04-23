@@ -45,13 +45,13 @@ def legacy_direct_relay_worker(
             finally:
                 relay_queue.task_done()
 
-    channel = grpc.insecure_channel(config.grpc_relay_target)
+    channel = grpc.insecure_channel(config.legacy_grpc_relay_target)
     stub = build_frame_relay_stub(channel)
 
     try:
         ack = stub(
             relay_frames(),
-            timeout=config.grpc_relay_timeout_sec,
+            timeout=config.legacy_grpc_relay_timeout_sec,
         )
         print(
             "[LEGACY DIRECT RELAY CLOSED] "
@@ -77,7 +77,7 @@ def start_legacy_direct_relay_worker(
     config: CollectorConfig,
     experiment_recorder: ExperimentRecorder | None = None,
 ):
-    if not config.grpc_relay_target:
+    if not config.legacy_grpc_relay_target:
         return None, None, None
 
     try:

@@ -41,10 +41,10 @@ def main():
     print(f"[START] collecting MJPEG stream from {config.camera_name}")
     print(f"[URL] {config.source_url}")
     print(f"[INTERVAL] target={config.collect_interval_sec:.3f}s")
-    print(f"[REGISTER API] {config.register_api_url}")
-    if config.grpc_relay_target:
-        print(f"[GRPC RELAY] {config.grpc_relay_target}")
-    print(f"[STORAGE DIR] {config.storage_dir}")
+    print(f"[LEGACY REGISTER API] {config.legacy_register_api_url}")
+    if config.legacy_grpc_relay_target:
+        print(f"[LEGACY GRPC RELAY] {config.legacy_grpc_relay_target}")
+    print(f"[LEGACY STORAGE DIR] {config.legacy_storage_dir}")
 
     experiment_recorder = start_experiment_recorder(config, "mjpeg")
     register_queue, stop_event, worker = start_legacy_register_worker(
@@ -82,7 +82,7 @@ def main():
             save_path = build_legacy_collector_save_path(
                 config.camera_name,
                 timestamp_ms,
-                config.storage_dir,
+                config.legacy_storage_dir,
             )
             save_legacy_collector_image(save_path, image_bytes)
             saved_at = time.monotonic()

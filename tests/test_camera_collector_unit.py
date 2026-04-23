@@ -19,12 +19,14 @@ def test_build_config_reads_required_values(monkeypatch):
     assert config.camera_name == "camera1"
     assert config.source_url == "http://camera.local/shot.jpg"
     assert config.collect_interval_sec == 0.1
-    assert config.storage_dir == "captures"
-    assert config.register_api_url == "http://server.local/frames/register"
+    assert config.legacy_storage_dir == "captures"
+    assert config.legacy_register_api_url == "http://server.local/frames/register"
     assert config.capture_timeout_sec == 5.0
     assert config.register_timeout_sec == 5.0
-    assert config.grpc_relay_target is None
-    assert config.grpc_relay_timeout_sec is None
+    assert config.legacy_grpc_relay_target is None
+    assert config.legacy_grpc_relay_timeout_sec is None
+    assert config.storage_dir == config.legacy_storage_dir
+    assert config.register_api_url == config.legacy_register_api_url
     assert config.experiment_log_dir == "experiment_logs"
     assert config.experiment_id is None
 
@@ -37,8 +39,9 @@ def test_build_config_reads_optional_grpc_relay_env(monkeypatch):
 
     config = snapshot_collector.build_config()
 
-    assert config.grpc_relay_target == "127.0.0.1:50051"
-    assert config.grpc_relay_timeout_sec == 9.5
+    assert config.legacy_grpc_relay_target == "127.0.0.1:50051"
+    assert config.legacy_grpc_relay_timeout_sec == 9.5
+    assert config.grpc_relay_target == config.legacy_grpc_relay_target
 
 
 def test_build_config_reads_optional_experiment_env(monkeypatch, tmp_path):

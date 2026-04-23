@@ -18,14 +18,30 @@ class CollectorConfig:
     camera_name: str
     source_url: str
     collect_interval_sec: float
-    storage_dir: str
-    register_api_url: str
+    legacy_storage_dir: str
+    legacy_register_api_url: str
     capture_timeout_sec: float
     register_timeout_sec: float
-    grpc_relay_target: str | None
-    grpc_relay_timeout_sec: float | None
+    legacy_grpc_relay_target: str | None
+    legacy_grpc_relay_timeout_sec: float | None
     experiment_log_dir: str | None
     experiment_id: str | None
+
+    @property
+    def storage_dir(self) -> str:
+        return self.legacy_storage_dir
+
+    @property
+    def register_api_url(self) -> str:
+        return self.legacy_register_api_url
+
+    @property
+    def grpc_relay_target(self) -> str | None:
+        return self.legacy_grpc_relay_target
+
+    @property
+    def grpc_relay_timeout_sec(self) -> float | None:
+        return self.legacy_grpc_relay_timeout_sec
 
 
 # 환경 파일을 읽어서 수집기 설정을 준비한다.
@@ -69,16 +85,16 @@ def build_collector_config(
         camera_name=camera_name,
         source_url=source_url,
         collect_interval_sec=collect_interval_sec,
-        storage_dir=os.getenv("STORAGE_DIR", DEFAULT_STORAGE_DIR),
-        register_api_url=os.getenv("REGISTER_API_URL", DEFAULT_REGISTER_API_URL),
+        legacy_storage_dir=os.getenv("STORAGE_DIR", DEFAULT_STORAGE_DIR),
+        legacy_register_api_url=os.getenv("REGISTER_API_URL", DEFAULT_REGISTER_API_URL),
         capture_timeout_sec=float(
             os.getenv(timeout_env_name, str(default_capture_timeout_sec))
         ),
         register_timeout_sec=float(
             os.getenv("REGISTER_TIMEOUT_SEC", str(DEFAULT_REGISTER_TIMEOUT_SEC))
         ),
-        grpc_relay_target=os.getenv("GRPC_RELAY_TARGET"),
-        grpc_relay_timeout_sec=relay_timeout_sec,
+        legacy_grpc_relay_target=os.getenv("GRPC_RELAY_TARGET"),
+        legacy_grpc_relay_timeout_sec=relay_timeout_sec,
         experiment_log_dir=os.getenv(
             "EXPERIMENT_LOG_DIR",
             DEFAULT_EXPERIMENT_LOG_DIR,

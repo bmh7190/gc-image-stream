@@ -50,7 +50,7 @@ def legacy_register_worker(
             try:
                 response = register_legacy_frame_to_server(
                     session=session,
-                    register_api_url=config.register_api_url,
+                    register_api_url=config.legacy_register_api_url,
                     device_id=item["device_id"],
                     timestamp=item["timestamp"],
                     file_path=item["file_path"],
